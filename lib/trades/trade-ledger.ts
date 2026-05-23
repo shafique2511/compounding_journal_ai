@@ -21,11 +21,18 @@ export type TradeFormValues = {
   stopLoss: number;
   takeProfit: number;
   lotSize: number;
+  startingBalance: number;
   riskAmount: number;
+  rewardAmount: number;
   grossProfitLoss: number;
   commission: number;
   swap: number;
+  netProfitLoss: number;
   withdrawalAmount: number;
+  endingBalance: number;
+  growthPercent: number;
+  riskRewardRatio: number;
+  rMultiple: number;
   status: TradeStatus;
   strategyName: string;
   strategyId?: string;
@@ -87,7 +94,9 @@ export const EMPTY_TRADE_FILTERS: TradeFilters = {
 
 export function createTradeFromForm(values: TradeFormValues, existingTrade?: Trade): Trade {
   const now = Date.now();
-  const rewardAmount = Math.abs(toNumber(values.takeProfit) - toNumber(values.entryPrice)) * toNumber(values.lotSize);
+  const rewardAmount =
+    toNumber(values.rewardAmount) ||
+    Math.abs(toNumber(values.takeProfit) - toNumber(values.entryPrice)) * toNumber(values.lotSize);
   const riskRewardRatio = calculateRiskRewardRatio(
     values.direction,
     values.entryPrice,
@@ -125,9 +134,9 @@ export function createTradeFromForm(values: TradeFormValues, existingTrade?: Tra
     swap: toNumber(values.swap),
     netProfitLoss,
     withdrawalAmount: toNumber(values.withdrawalAmount),
-    startingBalance: existingTrade?.startingBalance ?? 0,
-    endingBalance: existingTrade?.endingBalance ?? 0,
-    growthPercent: existingTrade?.growthPercent ?? 0,
+    startingBalance: toNumber(values.startingBalance),
+    endingBalance: toNumber(values.endingBalance),
+    growthPercent: toNumber(values.growthPercent),
     riskRewardRatio,
     rMultiple,
     status: values.status,
@@ -263,11 +272,18 @@ export function getTradeFormDefaults(settings: AppSettings, trade?: Trade): Trad
     stopLoss: trade?.stopLoss ?? 0,
     takeProfit: trade?.takeProfit ?? 0,
     lotSize: trade?.lotSize ?? 0.01,
+    startingBalance: trade?.startingBalance ?? settings.initialBalance,
     riskAmount: trade?.riskAmount ?? 0,
+    rewardAmount: trade?.rewardAmount ?? 0,
     grossProfitLoss: trade?.grossProfitLoss ?? 0,
     commission: trade?.commission ?? settings.defaultCommission,
     swap: trade?.swap ?? settings.defaultSwap,
+    netProfitLoss: trade?.netProfitLoss ?? 0,
     withdrawalAmount: trade?.withdrawalAmount ?? 0,
+    endingBalance: trade?.endingBalance ?? settings.initialBalance,
+    growthPercent: trade?.growthPercent ?? 0,
+    riskRewardRatio: trade?.riskRewardRatio ?? 0,
+    rMultiple: trade?.rMultiple ?? 0,
     status: trade?.status ?? "Running",
     strategyName: trade?.strategyName ?? "",
     strategyId: trade?.strategyId ?? "",
