@@ -1,5 +1,11 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { EditTradeForm } from "@/components/journal/edit-trade-form";
 
-export default function EditJournalEntryPage() {
-  return <PagePlaceholder title="Edit Journal Entry" />;
+export default async function EditJournalEntryPage({
+  params,
+}: Readonly<{
+  params: Promise<{ id: string }>;
+}>) {
+  const { id } = await params;
+
+  return <EditTradeForm tradeId={id} />;
 }

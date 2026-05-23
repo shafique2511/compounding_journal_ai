@@ -1,5 +1,11 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { TradeDetail } from "@/components/journal";
 
-export default function JournalEntryPage() {
-  return <PagePlaceholder title="Journal Entry Detail" />;
+export default async function JournalEntryPage({
+  params,
+}: Readonly<{
+  params: Promise<{ id: string }>;
+}>) {
+  const { id } = await params;
+
+  return <TradeDetail tradeId={id} />;
 }

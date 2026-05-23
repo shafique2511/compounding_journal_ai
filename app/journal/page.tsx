@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { TradeJournal } from "@/components/journal";
 
 export default function JournalPage() {
-  return <PagePlaceholder title="Journal" />;
+  return <TradeJournal />;
 }

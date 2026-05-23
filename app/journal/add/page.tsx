@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { TradeForm } from "@/components/journal";
 
 export default function AddJournalEntryPage() {
-  return <PagePlaceholder title="Add Journal Entry" />;
+  return <TradeForm />;
 }

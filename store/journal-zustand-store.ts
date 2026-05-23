@@ -14,6 +14,8 @@ type JournalStore = {
   setTrades: (trades: Trade[]) => void;
   setWithdrawals: (withdrawals: Withdrawal[]) => void;
   setStrategies: (strategies: Strategy[]) => void;
+  upsertTrade: (trade: Trade) => void;
+  removeTrade: (tradeId: string) => void;
 };
 
 export const useJournalStore = create<JournalStore>()(
@@ -27,6 +29,16 @@ export const useJournalStore = create<JournalStore>()(
       setTrades: (trades) => set({ trades }),
       setWithdrawals: (withdrawals) => set({ withdrawals }),
       setStrategies: (strategies) => set({ strategies }),
+      upsertTrade: (trade) =>
+        set((state) => ({
+          trades: state.trades.some((item) => item.id === trade.id)
+            ? state.trades.map((item) => (item.id === trade.id ? trade : item))
+            : [...state.trades, trade],
+        })),
+      removeTrade: (tradeId) =>
+        set((state) => ({
+          trades: state.trades.filter((trade) => trade.id !== tradeId),
+        })),
     }),
     {
       name: "trade-compounding-journal-ai-zustand",
