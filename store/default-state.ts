@@ -32,4 +32,5 @@ export const DEFAULT_JOURNAL_STATE: JournalState = {
   withdrawals: [],
   strategies: [],
   filterPresets: [],
+  aiAnalyses: [],
 };

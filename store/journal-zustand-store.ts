@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { AppSettings, FilterPreset, Strategy, Trade, Withdrawal } from "@/types";
+import type { AiAnalysis, AppSettings, FilterPreset, Strategy, Trade, Withdrawal } from "@/types";
 import { DEFAULT_SETTINGS } from "@/store/default-state";
 
 type JournalStore = {
@@ -11,17 +11,20 @@ type JournalStore = {
   withdrawals: Withdrawal[];
   strategies: Strategy[];
   filterPresets: FilterPreset[];
+  aiAnalyses: AiAnalysis[];
   setSettings: (settings: AppSettings) => void;
   setTrades: (trades: Trade[]) => void;
   setWithdrawals: (withdrawals: Withdrawal[]) => void;
   setStrategies: (strategies: Strategy[]) => void;
   setFilterPresets: (filterPresets: FilterPreset[]) => void;
+  setAiAnalyses: (aiAnalyses: AiAnalysis[]) => void;
   upsertTrade: (trade: Trade) => void;
   removeTrade: (tradeId: string) => void;
   upsertStrategy: (strategy: Strategy) => void;
   removeStrategy: (strategyId: string) => void;
   upsertFilterPreset: (filterPreset: FilterPreset) => void;
   removeFilterPreset: (filterPresetId: string) => void;
+  upsertAiAnalysis: (aiAnalysis: AiAnalysis) => void;
 };
 
 export const useJournalStore = create<JournalStore>()(
@@ -32,11 +35,13 @@ export const useJournalStore = create<JournalStore>()(
       withdrawals: [],
       strategies: [],
       filterPresets: [],
+      aiAnalyses: [],
       setSettings: (settings) => set({ settings }),
       setTrades: (trades) => set({ trades }),
       setWithdrawals: (withdrawals) => set({ withdrawals }),
       setStrategies: (strategies) => set({ strategies }),
       setFilterPresets: (filterPresets) => set({ filterPresets }),
+      setAiAnalyses: (aiAnalyses) => set({ aiAnalyses }),
       upsertTrade: (trade) =>
         set((state) => ({
           trades: state.trades.some((item) => item.id === trade.id)
@@ -68,6 +73,12 @@ export const useJournalStore = create<JournalStore>()(
       removeFilterPreset: (filterPresetId) =>
         set((state) => ({
           filterPresets: state.filterPresets.filter((preset) => preset.id !== filterPresetId),
+        })),
+      upsertAiAnalysis: (aiAnalysis) =>
+        set((state) => ({
+          aiAnalyses: state.aiAnalyses.some((item) => item.id === aiAnalysis.id)
+            ? state.aiAnalyses.map((item) => (item.id === aiAnalysis.id ? aiAnalysis : item))
+            : [...state.aiAnalyses, aiAnalysis],
         })),
     }),
     {

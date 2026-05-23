@@ -37,6 +37,7 @@ export function readJournalState(): JournalState {
       withdrawals: parsedValue.withdrawals ?? [],
       strategies: parsedValue.strategies ?? [],
       filterPresets: parsedValue.filterPresets ?? [],
+      aiAnalyses: parsedValue.aiAnalyses ?? [],
     };
     return cachedState;
   } catch {

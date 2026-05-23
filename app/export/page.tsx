@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { ExportBackupPage } from "@/components/export";
 
 export default function ExportPage() {
-  return <PagePlaceholder title="Export" />;
+  return <ExportBackupPage />;
 }

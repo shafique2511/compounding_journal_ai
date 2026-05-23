@@ -169,4 +169,5 @@ export type JournalState = {
   withdrawals: Withdrawal[];
   strategies: Strategy[];
   filterPresets: FilterPreset[];
+  aiAnalyses: AiAnalysis[];
 };
