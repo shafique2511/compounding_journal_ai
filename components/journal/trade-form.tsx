@@ -3,7 +3,7 @@
 import { ImagePlus, Save, Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
@@ -84,9 +84,14 @@ export function TradeForm({ trade }: TradeFormProps) {
   const [message, setMessage] = useState("");
   const [showChecklistWarning, setShowChecklistWarning] = useState(false);
   const [pendingValues, setPendingValues] = useState<TradeFormInput | null>(null);
+  const autoStartingBalance = useMemo(
+    () => trade?.startingBalance ?? getNextStartingBalance(trades, settings.initialBalance),
+    [settings.initialBalance, trade?.startingBalance, trades],
+  );
   const form = useForm<TradeFormInput>({
     defaultValues: {
       ...getTradeFormDefaults(settings, trade),
+      startingBalance: autoStartingBalance,
       mistakeTags: trade?.mistakeTags ?? [],
     },
   });
@@ -153,6 +158,10 @@ export function TradeForm({ trade }: TradeFormProps) {
     () => buildRiskWarnings(values, calculations.riskRewardRatio, settings, trades, trade?.id),
     [calculations.riskRewardRatio, settings, trade?.id, trades, values],
   );
+
+  useEffect(() => {
+    form.setValue("startingBalance", autoStartingBalance, { shouldDirty: false });
+  }, [autoStartingBalance, form]);
 
   async function handleSubmit(valuesToSubmit: TradeFormInput) {
     setError("");
@@ -279,7 +288,7 @@ export function TradeForm({ trade }: TradeFormProps) {
       </Section>
 
       <Section title="3. Money Info">
-        <Input label="Starting Balance" type="number" step="any" {...form.register("startingBalance", { valueAsNumber: true })} />
+        <input type="hidden" {...form.register("startingBalance", { valueAsNumber: true })} />
         <Input label="Risk Amount" type="number" step="any" {...form.register("riskAmount", { valueAsNumber: true })} />
         <ReadOnlyMetric label="Reward Amount" value={calculations.rewardAmount} />
         <Input label="Gross Profit/Loss" type="number" step="any" {...form.register("grossProfitLoss", { valueAsNumber: true })} />
@@ -620,4 +629,9 @@ function isValidNumber(value: unknown) {
 
 function toNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function getNextStartingBalance(trades: Trade[], initialBalance: number) {
+  const sortedTrades = [...trades].sort((first, second) => first.timestamp - second.timestamp);
+  return sortedTrades.at(-1)?.endingBalance ?? initialBalance;
 }
