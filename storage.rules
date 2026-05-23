@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsUserPath(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /screenshots/{userId}/{tradeId}/{fileName} {
+      allow read, delete: if ownsUserPath(userId);
+      allow create, update: if ownsUserPath(userId)
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /strategyScreenshots/{userId}/{strategyId}/{fileName} {
+      allow read, delete: if ownsUserPath(userId);
+      allow create, update: if ownsUserPath(userId)
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}
