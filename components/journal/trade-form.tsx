@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteStorageFile, saveTrade, uploadTradeScreenshot } from "@/lib/firebase";
+import { deleteStorageFile, saveTrade, uploadTradeScreenshot } from "@/lib/supabase";
 import {
   calculateChecklistScore,
   calculateChecklistStatus,
@@ -191,7 +191,7 @@ export function TradeForm({ trade }: TradeFormProps) {
       try {
         await Promise.all(recalculatedTrades.map((item) => saveTrade(user.uid, item)));
       } catch {
-        setMessage("Trade saved locally. Firestore could not sync the latest balances.");
+        setMessage("Trade saved locally. Supabase could not sync the latest balances.");
         return;
       }
     }

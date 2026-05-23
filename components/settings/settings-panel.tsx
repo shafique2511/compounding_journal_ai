@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
 import { calculateCumulativeProfit, calculateLossRate, calculateMaxDrawdown, calculateWinRate } from "@/lib/calculations";
-import { saveTrade, saveUserSettings } from "@/lib/firebase";
+import { saveTrade, saveUserSettings } from "@/lib/supabase";
 import { settingsSchema } from "@/lib/validation";
 import { formatTimezoneOffset, getBrowserTimezoneOffsetMinutes } from "@/lib/time/local-time";
 import { recalculateTradesInSequence } from "@/lib/trades/trade-ledger";

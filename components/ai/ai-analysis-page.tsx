@@ -12,7 +12,7 @@ import {
   type AiAnalysisFilter,
   type AiFilterValues,
 } from "@/lib/ai/analysis";
-import { saveAiAnalysis } from "@/lib/firebase";
+import { saveAiAnalysis } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
 import { useJournalStore } from "@/store";
 import type { AiAnalysis, AiProvider } from "@/types";
@@ -108,7 +108,7 @@ export function AiAnalysisPage() {
       const result = data.analysis?.trim() || "AI returned an empty analysis.";
       setAnalysis(result);
       setLastSummary(summary);
-      setMessage(settings.saveAiAnalysisHistory ? "Analysis complete. History saved when Firebase is available." : "Analysis complete.");
+      setMessage(settings.saveAiAnalysisHistory ? "Analysis complete. History saved when Supabase is available." : "Analysis complete.");
 
       if (user && settings.saveAiAnalysisHistory) {
         try {
@@ -123,7 +123,7 @@ export function AiAnalysisPage() {
             createdAt: getCurrentTimestamp(),
           } satisfies AiAnalysis);
         } catch {
-          setMessage("Analysis complete. AI history could not be saved to Firestore.");
+          setMessage("Analysis complete. AI history could not be saved to Supabase.");
         }
       }
     } catch (caughtError) {
@@ -160,7 +160,7 @@ export function AiAnalysisPage() {
       setError("");
       setMessage("AI analysis saved.");
     } catch {
-      setError("AI analysis could not be saved. Check Firebase permissions and try again.");
+      setError("AI analysis could not be saved. Check Supabase permissions and try again.");
     }
   }
 

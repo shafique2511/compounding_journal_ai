@@ -6,7 +6,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteUserDocument, listTrades, listUserDocuments, saveTrade } from "@/lib/firebase";
+import { deleteUserDocument, listTrades, listUserDocuments, saveTrade } from "@/lib/supabase";
 import { applyFilterPresetToTradeFilters } from "@/lib/filters/filter-presets";
 import {
   EMPTY_TRADE_FILTERS,
@@ -89,7 +89,7 @@ export function TradeJournal() {
         await deleteUserDocument(user.uid, "trades", tradeToDelete.id);
         await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.uid, trade)));
       } catch {
-        setMessage("Trade deleted locally. Firestore could not sync the change.");
+        setMessage("Trade deleted locally. Supabase could not sync the change.");
       }
     }
   }

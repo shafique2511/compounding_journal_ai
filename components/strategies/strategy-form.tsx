@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteStorageFile, saveStrategy, uploadStrategyScreenshot } from "@/lib/firebase";
+import { deleteStorageFile, saveStrategy, uploadStrategyScreenshot } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
 import { useJournalStore } from "@/store";
 import type { Strategy } from "@/types";
@@ -82,7 +82,7 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
       try {
         await saveStrategy(user.uid, nextStrategy);
       } catch {
-        setMessage("Strategy saved locally. Firestore could not sync it.");
+        setMessage("Strategy saved locally. Supabase could not sync it.");
         return;
       }
     }

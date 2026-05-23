@@ -6,7 +6,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteUserDocument, listUserDocuments, saveFilterPreset } from "@/lib/firebase";
+import { deleteUserDocument, listUserDocuments, saveFilterPreset } from "@/lib/supabase";
 import { filterTradesByPreset } from "@/lib/filters/filter-presets";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
 import { useJournalStore } from "@/store";
@@ -99,7 +99,7 @@ export function FilterPresetsPage() {
       try {
         await saveFilterPreset(user.uid, preset);
       } catch {
-        setMessage("Filter preset saved locally. Firebase is not available.");
+        setMessage("Filter preset saved locally. Supabase is not available.");
       }
     }
   }
@@ -115,7 +115,7 @@ export function FilterPresetsPage() {
       try {
         await deleteUserDocument(user.uid, "filterPresets", preset.id);
       } catch {
-        setMessage("Filter preset deleted locally. Firebase is not available.");
+        setMessage("Filter preset deleted locally. Supabase is not available.");
       }
     }
   }

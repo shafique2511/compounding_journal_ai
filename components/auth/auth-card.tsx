@@ -13,7 +13,7 @@ import {
   loginWithGoogle,
   registerWithEmail,
   sendPasswordReset,
-} from "@/lib/firebase";
+} from "@/lib/supabase";
 import { authCredentialsSchema, authEmailSchema } from "@/lib/validation";
 
 type AuthMode = "login" | "register" | "forgot";

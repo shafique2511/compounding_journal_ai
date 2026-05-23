@@ -1,11 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { User } from "firebase/auth";
-import { subscribeToAuthState } from "@/lib/firebase";
+import { subscribeToAuthState, type AuthUser } from "@/lib/supabase";
 
 type AuthSnapshot = {
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
   error: string;
 };

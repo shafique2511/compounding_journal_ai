@@ -1,9 +1,4 @@
-export {
-  getFirebaseApp,
-  getFirebaseAuth,
-  getFirebaseDb,
-  getFirebaseStorage,
-} from "@/lib/firebase/config";
+export { getStorageBucket, getSupabaseClient, requireSupabaseClient } from "@/lib/supabase/config";
 export {
   loginWithEmail,
   loginWithGoogle,
@@ -11,7 +6,8 @@ export {
   registerWithEmail,
   sendPasswordReset,
   subscribeToAuthState,
-} from "@/lib/firebase/auth";
+  type AuthUser,
+} from "@/lib/supabase/auth";
 export {
   deleteUserDocument,
   initializeUserAccount,
@@ -22,9 +18,9 @@ export {
   saveStrategy,
   saveTrade,
   saveUserSettings,
-} from "@/lib/firebase/firestore";
+} from "@/lib/supabase/database";
 export {
   deleteStorageFile,
   uploadStrategyScreenshot,
   uploadTradeScreenshot,
-} from "@/lib/firebase/storage";
+} from "@/lib/supabase/storage";

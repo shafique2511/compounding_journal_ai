@@ -37,7 +37,7 @@ import {
   calculateWinRate,
 } from "@/lib/calculations";
 import { useAuth } from "@/components/auth";
-import { listUserDocuments } from "@/lib/firebase";
+import { listUserDocuments } from "@/lib/supabase";
 import { applyFilterPresetToDashboardFilters } from "@/lib/filters/filter-presets";
 import { useJournalStore } from "@/store";
 import type { FilterPreset, Trade } from "@/types";

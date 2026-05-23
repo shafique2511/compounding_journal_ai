@@ -5,7 +5,7 @@ import { Edit, Eye, Plus, Power, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteUserDocument, saveStrategy } from "@/lib/firebase";
+import { deleteUserDocument, saveStrategy } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
 import {
   calculateAverageR,
@@ -31,7 +31,7 @@ export function StrategyPlaybook() {
       try {
         await saveStrategy(user.uid, nextStrategy);
       } catch {
-        setMessage("Strategy updated locally. Firestore could not sync the change.");
+        setMessage("Strategy updated locally. Supabase could not sync the change.");
       }
     }
   }
@@ -47,7 +47,7 @@ export function StrategyPlaybook() {
       try {
         await deleteUserDocument(user.uid, "strategies", strategyToDelete.id);
       } catch {
-        setMessage("Strategy deleted locally. Firestore could not sync the deletion.");
+        setMessage("Strategy deleted locally. Supabase could not sync the deletion.");
       }
     }
 

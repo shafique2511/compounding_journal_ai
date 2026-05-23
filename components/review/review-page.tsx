@@ -5,7 +5,7 @@ import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { saveTrade } from "@/lib/firebase";
+import { saveTrade } from "@/lib/supabase";
 import { useJournalStore } from "@/store";
 import type { Trade } from "@/types";
 import { cn } from "@/lib/utils";
@@ -62,7 +62,7 @@ export function ReviewPage() {
       try {
         await saveTrade(user.uid, nextTrade);
       } catch {
-        setMessage(`Review updated locally for trade #${trade.tradeNumber}. Firestore could not sync it.`);
+        setMessage(`Review updated locally for trade #${trade.tradeNumber}. Supabase could not sync it.`);
       }
     }
   }

@@ -16,7 +16,7 @@ import {
   exportStrategiesToCsv,
   exportTradesToCsv,
 } from "@/lib/export";
-import { listUserDocuments, saveAiAnalysis, saveFilterPreset, saveStrategy, saveTrade, saveUserSettings } from "@/lib/firebase";
+import { listUserDocuments, saveAiAnalysis, saveFilterPreset, saveStrategy, saveTrade, saveUserSettings } from "@/lib/supabase";
 import { filterTrades, type TradeFilters } from "@/lib/trades/trade-ledger";
 import { useJournalStore } from "@/store";
 import type { AiAnalysis, FilterPreset, Strategy } from "@/types";

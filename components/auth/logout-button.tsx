@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
-import { logout } from "@/lib/firebase";
+import { logout } from "@/lib/supabase";
 
 export function LogoutButton() {
   const router = useRouter();

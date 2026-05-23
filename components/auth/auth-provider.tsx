@@ -1,11 +1,11 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { User } from "firebase/auth";
+import type { AuthUser } from "@/lib/supabase";
 import { useAuthState } from "@/components/auth/auth-state";
 
 type AuthContextValue = {
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
   error: string;
 };
