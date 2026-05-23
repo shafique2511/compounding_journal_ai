@@ -1,33 +1,170 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildAiInputSummary, buildAiPrompt, filterTradesForAi } from "@/lib/ai/analysis";
+import {
+  aiAnalysisToInsert,
+  settingsFromRow,
+  strategyFromRow,
+  tradeFromRow,
+  type SettingsRow,
+  type StrategyRow,
+  type TradeRow,
+} from "@/lib/supabase/mappers";
+import { requireSupabaseServerClient } from "@/src/lib/supabase/server";
+import { DEFAULT_SETTINGS } from "@/store";
+import type { AiAnalysis } from "@/types";
 
-const aiAnalyzeRequestSchema = z.object({
-  provider: z.enum(["openai", "gemini"]),
-  model: z.string().trim().max(100).optional(),
-  prompt: z.string().trim().min(1).max(20_000),
+const aiFilterSchema = z.object({
+  customFrom: z.string().default(""),
+  customTo: z.string().default(""),
+  filter: z
+    .enum([
+      "all",
+      "week",
+      "month",
+      "custom",
+      "trade",
+      "strategy",
+      "symbol",
+      "losing",
+      "rule-broken",
+      "low-quality",
+    ])
+    .default("all"),
+  selectedStrategy: z.string().default(""),
+  selectedSymbol: z.string().default(""),
+  selectedTradeId: z.string().default(""),
 });
 
+const aiAnalyzeRequestSchema = z.object({
+  filters: aiFilterSchema.default({
+    customFrom: "",
+    customTo: "",
+    filter: "all",
+    selectedStrategy: "",
+    selectedSymbol: "",
+    selectedTradeId: "",
+  }),
+  model: z.string().trim().max(100).optional(),
+  provider: z.enum(["openai", "gemini"]).optional(),
+});
+
+const systemPrompt =
+  "You are a professional trading journal coach. Analyze trade-by-trade compounding data, risk behavior, strategy adherence, psychology, screenshots, withdrawals, and improvement. Do not provide trade signals, do not tell the user exactly what trade to take, do not guarantee profit, do not encourage revenge trading, do not encourage overlotting, and do not give unsafe risk advice.";
+
 export async function POST(request: Request) {
-  const parsedBody = aiAnalyzeRequestSchema.safeParse(await request.json());
+  try {
+    const parsedBody = aiAnalyzeRequestSchema.safeParse(await request.json());
 
-  if (!parsedBody.success) {
-    return NextResponse.json({ error: "Invalid AI analysis request." }, { status: 400 });
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: "Invalid AI analysis request." }, { status: 400 });
+    }
+
+    const supabase = await requireSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Login is required to run AI analysis." }, { status: 401 });
+    }
+
+    const [tradesResult, settingsResult, strategiesResult] = await Promise.all([
+      supabase.from("trades").select("*").eq("user_id", user.id),
+      supabase.from("user_settings").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("strategies").select("*").eq("user_id", user.id),
+    ]);
+
+    if (tradesResult.error) {
+      return NextResponse.json({ error: "Could not load trades for AI analysis." }, { status: 500 });
+    }
+
+    if (settingsResult.error) {
+      return NextResponse.json({ error: "Could not load settings for AI analysis." }, { status: 500 });
+    }
+
+    if (strategiesResult.error) {
+      return NextResponse.json({ error: "Could not load strategies for AI analysis." }, { status: 500 });
+    }
+
+    const settings = settingsResult.data
+      ? { ...DEFAULT_SETTINGS, ...settingsFromRow(settingsResult.data as SettingsRow) }
+      : DEFAULT_SETTINGS;
+    const provider = parsedBody.data.provider ?? settings.aiProvider;
+    const model = parsedBody.data.model?.trim() || settings.aiModel;
+
+    if (provider !== "openai" && provider !== "gemini") {
+      return NextResponse.json(
+        { error: "Select Gemini or ChatGPT / OpenAI in Settings before running AI analysis." },
+        { status: 400 },
+      );
+    }
+
+    const trades = ((tradesResult.data ?? []) as TradeRow[]).map(tradeFromRow);
+    const strategies = ((strategiesResult.data ?? []) as StrategyRow[]).map(strategyFromRow);
+    const selectedTrades = filterTradesForAi(trades, parsedBody.data.filters);
+
+    if (selectedTrades.length === 0) {
+      return NextResponse.json({ error: "No trades match the selected AI filter." }, { status: 400 });
+    }
+
+    const inputSummary = buildAiInputSummary(
+      selectedTrades,
+      strategies,
+      settings,
+      parsedBody.data.filters,
+    );
+    const prompt = buildAiPrompt(inputSummary);
+    const result =
+      provider === "openai"
+        ? await analyzeWithOpenAI(prompt, model)
+        : await analyzeWithGemini(prompt, model);
+
+    const analysis = result.analysis.trim() || "AI returned an empty analysis.";
+
+    if (settings.saveAiAnalysisHistory) {
+      const analysisDocument: AiAnalysis = {
+        id: crypto.randomUUID(),
+        provider,
+        model: result.model,
+        analysisType: parsedBody.data.filters.filter,
+        dateRange: formatDateRange(parsedBody.data.filters),
+        inputSummary,
+        result: analysis,
+        createdAt: Date.now(),
+      };
+      const { error: saveError } = await supabase
+        .from("ai_analyses")
+        .insert(aiAnalysisToInsert(analysisDocument, user.id));
+
+      if (saveError) {
+        return NextResponse.json(
+          { error: "AI analysis completed, but history could not be saved." },
+          { status: 500 },
+        );
+      }
+    }
+
+    return NextResponse.json({
+      analysis,
+      inputSummary,
+      model: result.model,
+      provider,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "AI analysis failed." },
+      { status: 500 },
+    );
   }
-
-  const { model, provider, prompt } = parsedBody.data;
-
-  if (provider === "openai") {
-    return analyzeWithOpenAI(prompt, model);
-  }
-
-  return analyzeWithGemini(prompt, model);
 }
 
 async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    return NextResponse.json({ error: "OpenAI API key is not configured." }, { status: 503 });
+    throw new Error("OpenAI API key is not configured.");
   }
 
   const model = requestedModel || process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -35,13 +172,10 @@ async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
     body: JSON.stringify({
       model,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a trading journal coach. Analyze trade-by-trade compounding data, risk behavior, strategy adherence, psychology, screenshots, withdrawals, and improvement. Do not provide trade signals, guarantee profit, encourage revenge trading, encourage overlotting, or give unsafe risk advice.",
-        },
+        { role: "system", content: systemPrompt },
         { role: "user", content: prompt },
       ],
+      temperature: 0.2,
     }),
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -51,41 +185,39 @@ async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
   });
 
   if (!response.ok) {
-    return NextResponse.json({ error: "OpenAI analysis failed." }, { status: response.status });
+    throw new Error("OpenAI analysis failed.");
   }
 
   const data = (await response.json()) as {
     choices?: { message?: { content?: string } }[];
   };
 
-  return NextResponse.json({
-    provider: "openai",
-    model,
+  return {
     analysis: data.choices?.[0]?.message?.content ?? "",
-  });
+    model,
+  };
 }
 
 async function analyzeWithGemini(prompt: string, requestedModel?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 503 });
+    throw new Error("Gemini API key is not configured.");
   }
 
   const model = requestedModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
     {
       body: JSON.stringify({
         contents: [
           {
-            parts: [
-              {
-                text: `You are a trading journal coach. Analyze trade-by-trade compounding data, risk behavior, strategy adherence, psychology, screenshots, withdrawals, and improvement. Do not provide trade signals, guarantee profit, encourage revenge trading, encourage overlotting, or give unsafe risk advice.\n\n${prompt}`,
-              },
-            ],
+            parts: [{ text: `${systemPrompt}\n\n${prompt}` }],
           },
         ],
+        generationConfig: {
+          temperature: 0.2,
+        },
       }),
       headers: {
         "Content-Type": "application/json",
@@ -95,16 +227,36 @@ async function analyzeWithGemini(prompt: string, requestedModel?: string) {
   );
 
   if (!response.ok) {
-    return NextResponse.json({ error: "Gemini analysis failed." }, { status: response.status });
+    throw new Error("Gemini analysis failed.");
   }
 
   const data = (await response.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
 
-  return NextResponse.json({
-    provider: "gemini",
-    model,
+  return {
     analysis: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "",
-  });
+    model,
+  };
+}
+
+function formatDateRange(values: z.infer<typeof aiFilterSchema>) {
+  if (values.filter === "custom") {
+    return `${values.customFrom || "start"} to ${values.customTo || "end"}`;
+  }
+
+  const labels: Record<z.infer<typeof aiFilterSchema>["filter"], string> = {
+    all: "Analyze all trades",
+    custom: "Analyze custom date range",
+    losing: "Analyze losing trades only",
+    "low-quality": "Analyze low quality trades only",
+    month: "Analyze this month",
+    "rule-broken": "Analyze rule broken trades only",
+    strategy: "Analyze selected strategy",
+    symbol: "Analyze selected symbol",
+    trade: "Analyze selected trade only",
+    week: "Analyze this week",
+  };
+
+  return labels[values.filter] ?? values.filter;
 }

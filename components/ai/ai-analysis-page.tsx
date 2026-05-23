@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
 import {
   buildAiInputSummary,
-  buildAiPrompt,
   filterTradesForAi,
   type AiAnalysisFilter,
   type AiFilterValues,
@@ -33,6 +32,7 @@ const filters: { label: string; value: AiAnalysisFilter }[] = [
 type AiResponse = {
   analysis?: string;
   error?: string;
+  inputSummary?: Record<string, unknown>;
   model?: string;
   provider?: AiProvider;
 };
@@ -84,16 +84,13 @@ export function AiAnalysisPage() {
       return;
     }
 
-    const summary = buildAiInputSummary(selectedTrades, strategies, settings, filterValues);
-    const prompt = buildAiPrompt(summary);
-
     setIsAnalyzing(true);
 
     try {
       const response = await fetch("/api/ai/analyze", {
         body: JSON.stringify({
+          filters: filterValues,
           model: settings.aiModel,
-          prompt,
           provider: settings.aiProvider,
         }),
         headers: { "Content-Type": "application/json" },
@@ -106,26 +103,11 @@ export function AiAnalysisPage() {
       }
 
       const result = data.analysis?.trim() || "AI returned an empty analysis.";
+      const summary =
+        data.inputSummary ?? buildAiInputSummary(selectedTrades, strategies, settings, filterValues);
       setAnalysis(result);
       setLastSummary(summary);
-      setMessage(settings.saveAiAnalysisHistory ? "Analysis complete. History saved when Supabase is available." : "Analysis complete.");
-
-      if (user && settings.saveAiAnalysisHistory) {
-        try {
-          await saveAiAnalysis(user.id, {
-            id: crypto.randomUUID(),
-            provider: settings.aiProvider,
-            model: data.model || settings.aiModel,
-            analysisType: filterValues.filter,
-            dateRange: formatDateRange(filterValues),
-            inputSummary: summary,
-            result,
-            createdAt: getCurrentTimestamp(),
-          } satisfies AiAnalysis);
-        } catch {
-          setMessage("Analysis complete. AI history could not be saved to Supabase.");
-        }
-      }
+      setMessage(settings.saveAiAnalysisHistory ? "Analysis complete. History saved." : "Analysis complete.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "AI analysis failed.");
     } finally {
