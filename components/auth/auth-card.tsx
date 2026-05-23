@@ -172,29 +172,21 @@ export function AuthCard({ mode }: AuthCardProps) {
         </Button>
       ) : null}
 
-      {isLogin ? (
-        <form className="mt-6 border-t pt-5" onSubmit={resetForm.handleSubmit(handleReset)}>
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Forgot password</span>
-            <input
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="Email for reset link"
-              type="email"
-              {...resetForm.register("email")}
-            />
-          </label>
-          <Button
-            asChild
-            className="mt-3 w-full"
-            type="button"
-            variant="ghost"
-          >
+      {isLogin && !isForgot ? (
+        <div className="mt-6 border-t pt-5">
+          <Button asChild className="w-full" type="button" variant="ghost">
             <Link href="/forgot-password">
               <KeyRound aria-hidden="true" className="size-4" />
-              Open Reset Page
+              Forgot password?
             </Link>
           </Button>
-        </form>
+        </div>
+      ) : null}
+
+      {!isLogin && !isForgot ? (
+        <Button asChild className="mt-3 w-full" type="button" variant="ghost">
+          <Link href="/login">Already have an account? Login</Link>
+        </Button>
       ) : null}
 
       {authError ? <p className="mt-4 text-sm text-destructive">{authError}</p> : null}
