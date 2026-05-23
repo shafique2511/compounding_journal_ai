@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -35,8 +36,11 @@ import {
   calculateWeeklyLossUsed,
   calculateWinRate,
 } from "@/lib/calculations";
+import { useAuth } from "@/components/auth";
+import { listUserDocuments } from "@/lib/firebase";
+import { applyFilterPresetToDashboardFilters } from "@/lib/filters/filter-presets";
 import { useJournalStore } from "@/store";
-import type { Trade } from "@/types";
+import type { FilterPreset, Trade } from "@/types";
 import { cn } from "@/lib/utils";
 
 type DashboardRange = "all" | "today" | "week" | "month" | "year" | "custom";
@@ -70,8 +74,32 @@ const defaultFilters: DashboardFilters = {
 const chartColors = ["#22c55e", "#ef4444", "#f97316", "#8b5cf6", "#64748b", "#3b82f6"];
 
 export function DashboardPage() {
-  const { settings, trades } = useJournalStore();
+  const { user } = useAuth();
+  const { filterPresets, settings, setFilterPresets, trades } = useJournalStore();
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+      .then(setFilterPresets)
+      .catch(() => undefined);
+  }, [setFilterPresets, user]);
+
+  function applyPreset(nextPresetId: string) {
+    if (!nextPresetId) {
+      setFilters(defaultFilters);
+      return;
+    }
+
+    setFilters(applyFilterPresetToDashboardFilters(
+      filters,
+      filterPresets.find((preset) => preset.id === nextPresetId),
+    ));
+  }
+
   const filteredTrades = useMemo(
     () => filterDashboardTrades(trades, filters),
     [filters, trades],
@@ -175,8 +203,11 @@ export function DashboardPage() {
             <option value="">Rule Followed</option>
             {ruleStatuses.map((rule) => <option key={rule}>{rule}</option>)}
           </Select>
-          <Select value={filters.preset} onChange={(value) => setFilters({ ...filters, preset: value })}>
+          <Select value={filters.preset} onChange={applyPreset}>
             <option value="">Saved Filter Presets</option>
+            {filterPresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.presetName}</option>
+            ))}
           </Select>
         </div>
       </div>

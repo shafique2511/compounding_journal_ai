@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { FilterPresetsPage as FilterPresetsView } from "@/components/filters";
 
 export default function FilterPresetsPage() {
-  return <PagePlaceholder title="Filter Presets" />;
+  return <FilterPresetsView />;
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   calculateAverageR,
   calculateDailyLossUsed,
@@ -9,14 +11,35 @@ import {
   calculateWeeklyLossUsed,
   calculateWinRate,
 } from "@/lib/calculations";
+import { useAuth } from "@/components/auth";
+import { listUserDocuments } from "@/lib/firebase";
+import { filterTradesByPreset } from "@/lib/filters/filter-presets";
 import { useJournalStore } from "@/store";
-import type { Trade } from "@/types";
+import type { FilterPreset, Trade } from "@/types";
 
 const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"];
 const qualityGrades = ["A+", "A", "B", "C", "D"];
 
 export function AnalyticsPage() {
-  const { settings, trades } = useJournalStore();
+  const { user } = useAuth();
+  const { filterPresets, settings, setFilterPresets, trades: allTrades } = useJournalStore();
+  const [presetId, setPresetId] = useState("");
+  const selectedPreset = filterPresets.find((preset) => preset.id === presetId);
+  const trades = useMemo(
+    () => filterTradesByPreset(allTrades, selectedPreset),
+    [allTrades, selectedPreset],
+  );
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+      .then(setFilterPresets)
+      .catch(() => undefined);
+  }, [setFilterPresets, user]);
+
   const wins = trades.filter((trade) => trade.status === "Win");
   const losses = trades.filter((trade) => trade.status === "Loss");
   const breakeven = trades.filter((trade) => trade.status === "Breakeven");
@@ -48,6 +71,20 @@ export function AnalyticsPage() {
   return (
     <section className="space-y-5">
       <Header />
+
+      <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-3">
+          <Select value={presetId} onChange={setPresetId}>
+            <option value="">All trades</option>
+            {filterPresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.presetName}</option>
+            ))}
+          </Select>
+          <div className="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground md:col-span-2">
+            {presetId ? `${trades.length} trades match the selected preset.` : "No preset applied."}
+          </div>
+        </div>
+      </div>
 
       <AnalysisSection title="1. Performance Summary">
         <Metric label="Total trades" value={trades.length} />
@@ -164,6 +201,26 @@ export function AnalyticsPage() {
         <Metric label="Most repeated mistake" value={mostRepeatedMistake} tone="withdrawal" />
       </AnalysisSection>
     </section>
+  );
+}
+
+function Select({
+  children,
+  onChange,
+  value,
+}: {
+  children: React.ReactNode;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <select
+      className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onChange={(event) => onChange(event.target.value)}
+      value={value}
+    >
+      {children}
+    </select>
   );
 }
 

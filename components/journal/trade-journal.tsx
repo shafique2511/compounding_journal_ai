@@ -6,7 +6,8 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteUserDocument, listTrades, saveTrade } from "@/lib/firebase";
+import { deleteUserDocument, listTrades, listUserDocuments, saveTrade } from "@/lib/firebase";
+import { applyFilterPresetToTradeFilters } from "@/lib/filters/filter-presets";
 import {
   EMPTY_TRADE_FILTERS,
   filterTrades,
@@ -16,7 +17,7 @@ import {
   type TradeSort,
 } from "@/lib/trades/trade-ledger";
 import { useJournalStore } from "@/store";
-import type { Trade } from "@/types";
+import type { FilterPreset, Trade } from "@/types";
 import { cn } from "@/lib/utils";
 
 const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"];
@@ -26,8 +27,9 @@ const ruleStatuses = ["Yes", "No", "Partially"];
 
 export function TradeJournal() {
   const { user } = useAuth();
-  const { settings, trades, setTrades } = useJournalStore();
+  const { filterPresets, settings, setFilterPresets, trades, setTrades } = useJournalStore();
   const [filters, setFilters] = useState<TradeFilters>(EMPTY_TRADE_FILTERS);
+  const [presetId, setPresetId] = useState("");
   const [sort, setSort] = useState<TradeSort>("newest");
   const [tradeToDelete, setTradeToDelete] = useState<Trade | null>(null);
   const [message, setMessage] = useState("");
@@ -44,7 +46,11 @@ export function TradeJournal() {
         }
       })
       .catch(() => undefined);
-  }, [settings.initialBalance, setTrades, user]);
+
+    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+      .then(setFilterPresets)
+      .catch(() => undefined);
+  }, [settings.initialBalance, setFilterPresets, setTrades, user]);
 
   const filteredTrades = useMemo(
     () => sortTrades(filterTrades(trades, filters), sort),
@@ -52,6 +58,17 @@ export function TradeJournal() {
   );
   const symbols = unique(trades.map((trade) => trade.symbol));
   const strategies = unique(trades.map((trade) => trade.strategyName).filter(Boolean));
+
+  function applyPreset(nextPresetId: string) {
+    setPresetId(nextPresetId);
+
+    if (!nextPresetId) {
+      setFilters(EMPTY_TRADE_FILTERS);
+      return;
+    }
+
+    setFilters(applyFilterPresetToTradeFilters(filters, filterPresets.find((preset) => preset.id === nextPresetId)));
+  }
 
   async function confirmDelete() {
     if (!tradeToDelete) {
@@ -126,6 +143,12 @@ export function TradeJournal() {
           <Select value={filters.ruleFollowed} onChange={(value) => setFilters({ ...filters, ruleFollowed: value })}>
             <option value="">All rule status</option>
             {ruleStatuses.map((rule) => <option key={rule}>{rule}</option>)}
+          </Select>
+          <Select value={presetId} onChange={applyPreset}>
+            <option value="">Saved filter presets</option>
+            {filterPresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.presetName}</option>
+            ))}
           </Select>
           <Select value={sort} onChange={(value) => setSort(value as TradeSort)}>
             <option value="newest">Sort by newest</option>
