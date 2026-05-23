@@ -16,6 +16,8 @@ type JournalStore = {
   setStrategies: (strategies: Strategy[]) => void;
   upsertTrade: (trade: Trade) => void;
   removeTrade: (tradeId: string) => void;
+  upsertStrategy: (strategy: Strategy) => void;
+  removeStrategy: (strategyId: string) => void;
 };
 
 export const useJournalStore = create<JournalStore>()(
@@ -38,6 +40,16 @@ export const useJournalStore = create<JournalStore>()(
       removeTrade: (tradeId) =>
         set((state) => ({
           trades: state.trades.filter((trade) => trade.id !== tradeId),
+        })),
+      upsertStrategy: (strategy) =>
+        set((state) => ({
+          strategies: state.strategies.some((item) => item.id === strategy.id)
+            ? state.strategies.map((item) => (item.id === strategy.id ? strategy : item))
+            : [...state.strategies, strategy],
+        })),
+      removeStrategy: (strategyId) =>
+        set((state) => ({
+          strategies: state.strategies.filter((strategy) => strategy.id !== strategyId),
         })),
     }),
     {

@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { StrategyForm } from "@/components/strategies";
 
 export default function AddStrategyPage() {
-  return <PagePlaceholder title="Add Strategy" />;
+  return <StrategyForm />;
 }

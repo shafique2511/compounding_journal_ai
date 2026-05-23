@@ -87,7 +87,15 @@ export function TradeForm({ trade }: TradeFormProps) {
   const values = useWatch({ control: form.control });
   const [tradeId] = useState(() => trade?.id ?? crypto.randomUUID());
   const strategyNames = useMemo(
-    () => Array.from(new Set(strategies.map((strategy) => strategy.strategyName).filter(Boolean))),
+    () =>
+      Array.from(
+        new Set(
+          strategies
+            .filter((strategy) => strategy.isActive)
+            .map((strategy) => strategy.strategyName)
+            .filter(Boolean),
+        ),
+      ),
     [strategies],
   );
   const calculations = useMemo(() => {

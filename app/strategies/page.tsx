@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { StrategyPlaybook } from "@/components/strategies";
 
 export default function StrategiesPage() {
-  return <PagePlaceholder title="Strategies" />;
+  return <StrategyPlaybook />;
 }
