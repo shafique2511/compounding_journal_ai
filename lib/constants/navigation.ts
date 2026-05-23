@@ -5,8 +5,7 @@ export const NAV_ITEMS = [
   { href: "/review", label: "Review" },
   { href: "/analytics", label: "Analytics" },
   { href: "/ai-analysis", label: "AI Analysis" },
-  { href: "/strategies", label: "Strategies" },
-  { href: "/filter-presets", label: "Filter Presets" },
+  { href: "/strategies", label: "Strategy Playbook" },
   { href: "/settings", label: "Settings" },
-  { href: "/export", label: "Export" },
+  { href: "/export", label: "Export / Backup" },
 ] as const;

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
 
-const publicRoutes = new Set(["/login", "/register"]);
+const publicRoutes = new Set(["/login", "/register", "/forgot-password"]);
 
 export function ProtectedRoute({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();

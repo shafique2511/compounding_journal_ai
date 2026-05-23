@@ -3,7 +3,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: 0 0% 100%;
+  --background: 210 40% 98%;
   --foreground: 222.2 84% 4.9%;
   --card: 0 0% 100%;
   --card-foreground: 222.2 84% 4.9%;
@@ -22,6 +22,11 @@
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
+  --profit: 142 71% 35%;
+  --loss: 0 72% 51%;
+  --withdrawal: 25 95% 53%;
+  --breakeven: 215 16% 47%;
+  --analytics: 245 58% 55%;
   --radius: 0.5rem;
 }
 
@@ -45,6 +50,11 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 224.3 76.3% 48%;
+  --profit: 142 70% 45%;
+  --loss: 0 84% 64%;
+  --withdrawal: 31 97% 58%;
+  --breakeven: 215 20% 65%;
+  --analytics: 250 95% 76%;
 }
 
 @theme inline {
@@ -67,6 +77,11 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  --color-profit: hsl(var(--profit));
+  --color-loss: hsl(var(--loss));
+  --color-withdrawal: hsl(var(--withdrawal));
+  --color-breakeven: hsl(var(--breakeven));
+  --color-analytics: hsl(var(--analytics));
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -79,4 +94,7 @@
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-feature-settings:
+    "rlig" 1,
+    "calt" 1;
 }

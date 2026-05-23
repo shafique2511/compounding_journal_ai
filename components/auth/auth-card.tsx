@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { KeyRound, Loader2, LogIn, MailPlus, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -15,7 +16,7 @@ import {
 } from "@/lib/firebase";
 import { authCredentialsSchema, authEmailSchema } from "@/lib/validation";
 
-type AuthMode = "login" | "register";
+type AuthMode = "login" | "register" | "forgot";
 
 type AuthCardProps = {
   mode: AuthMode;
@@ -29,6 +30,7 @@ export function AuthCard({ mode }: AuthCardProps) {
   const [message, setMessage] = useState("");
   const [authError, setAuthError] = useState("");
   const isLogin = mode === "login";
+  const isForgot = mode === "forgot";
 
   const credentialsForm = useForm<CredentialsInput>({
     defaultValues: { email: "", password: "" },
@@ -86,11 +88,39 @@ export function AuthCard({ mode }: AuthCardProps) {
       <div>
         <p className="text-sm font-medium text-muted-foreground">Trade Compounding Journal AI</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          {isLogin ? "Login" : "Create account"}
+          {isForgot ? "Reset password" : isLogin ? "Login" : "Create account"}
         </h1>
       </div>
 
-      <form className="mt-6 space-y-4" onSubmit={credentialsForm.handleSubmit(handleCredentials)}>
+      {isForgot ? (
+        <form className="mt-6 space-y-4" onSubmit={resetForm.handleSubmit(handleReset)}>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Email</span>
+            <input
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              type="email"
+              {...resetForm.register("email")}
+            />
+            {resetForm.formState.errors.email ? (
+              <span className="block text-xs text-destructive">
+                {resetForm.formState.errors.email.message}
+              </span>
+            ) : null}
+          </label>
+          <Button className="w-full" disabled={resetForm.formState.isSubmitting} type="submit">
+            {resetForm.formState.isSubmitting ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <KeyRound aria-hidden="true" className="size-4" />
+            )}
+            Send Reset Email
+          </Button>
+          <Button asChild className="w-full" type="button" variant="ghost">
+            <Link href="/login">Back to Login</Link>
+          </Button>
+        </form>
+      ) : (
+        <form className="mt-6 space-y-4" onSubmit={credentialsForm.handleSubmit(handleCredentials)}>
         <label className="space-y-2">
           <span className="text-sm font-medium">Email</span>
           <input
@@ -129,12 +159,15 @@ export function AuthCard({ mode }: AuthCardProps) {
           )}
           {isLogin ? "Login" : "Register"}
         </Button>
-      </form>
+        </form>
+      )}
 
-      <Button className="mt-3 w-full" onClick={handleGoogleLogin} type="button" variant="secondary">
-        <UserRound aria-hidden="true" className="size-4" />
-        Continue with Google
-      </Button>
+      {!isForgot ? (
+        <Button className="mt-3 w-full" onClick={handleGoogleLogin} type="button" variant="secondary">
+          <UserRound aria-hidden="true" className="size-4" />
+          Continue with Google
+        </Button>
+      ) : null}
 
       {isLogin ? (
         <form className="mt-6 border-t pt-5" onSubmit={resetForm.handleSubmit(handleReset)}>
@@ -148,17 +181,15 @@ export function AuthCard({ mode }: AuthCardProps) {
             />
           </label>
           <Button
+            asChild
             className="mt-3 w-full"
-            disabled={resetForm.formState.isSubmitting}
-            type="submit"
+            type="button"
             variant="ghost"
           >
-            {resetForm.formState.isSubmitting ? (
-              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            ) : (
+            <Link href="/forgot-password">
               <KeyRound aria-hidden="true" className="size-4" />
-            )}
-            Send Reset Email
+              Open Reset Page
+            </Link>
           </Button>
         </form>
       ) : null}
