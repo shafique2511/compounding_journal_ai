@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AuthProvider, ProtectedRoute } from "@/components/auth";
-import { AppShell } from "@/components/layout/app-shell";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import "./globals.css";
 
@@ -17,7 +16,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <ThemeProvider>
           <AuthProvider>
             <ProtectedRoute>
-              <AppShell>{children}</AppShell>
+              {children}
             </ProtectedRoute>
           </AuthProvider>
         </ThemeProvider>

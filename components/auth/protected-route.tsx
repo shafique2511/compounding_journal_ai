@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { AppShell } from "@/components/layout/app-shell";
 
 const publicRoutes = new Set(["/login", "/register", "/forgot-password"]);
 
@@ -13,7 +14,11 @@ export function ProtectedRoute({ children }: Readonly<{ children: ReactNode }>) 
   const { error, isLoading, user } = useAuth();
 
   if (publicRoutes.has(pathname)) {
-    return children;
+    return (
+      <main className="min-h-screen bg-background px-4 py-10 text-foreground">
+        {children}
+      </main>
+    );
   }
 
   if (isLoading) {
@@ -56,5 +61,5 @@ export function ProtectedRoute({ children }: Readonly<{ children: ReactNode }>) 
     );
   }
 
-  return children;
+  return <AppShell>{children}</AppShell>;
 }
