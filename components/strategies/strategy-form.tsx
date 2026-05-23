@@ -1,7 +1,7 @@
 "use client";
 
 import { ImagePlus, Save, Trash2, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -10,6 +10,8 @@ import { useAuth } from "@/components/auth";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteStorageFile, saveStrategy, uploadStrategyScreenshot } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
+import { strategyTemplates } from "@/src/data/strategyTemplates";
+import { buildTemplateNotes } from "@/components/strategies/strategy-template-library";
 import { useJournalStore } from "@/store";
 import type { Strategy } from "@/types";
 
@@ -29,23 +31,27 @@ type StrategyFormValues = {
 
 export function StrategyForm({ strategy }: { strategy?: Strategy }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { upsertStrategy } = useJournalStore();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [strategyId] = useState(() => strategy?.id ?? crypto.randomUUID());
+  const template = !strategy
+    ? strategyTemplates.find((item) => item.id === searchParams.get("template"))
+    : undefined;
   const form = useForm<StrategyFormValues>({
     defaultValues: {
-      strategyName: strategy?.strategyName ?? "",
-      marketType: strategy?.marketType ?? "",
-      timeframe: strategy?.timeframe ?? "",
-      entryRules: strategy?.entryRules ?? "",
-      exitRules: strategy?.exitRules ?? "",
-      stopLossRules: strategy?.stopLossRules ?? "",
-      takeProfitRules: strategy?.takeProfitRules ?? "",
-      riskRules: strategy?.riskRules ?? "",
+      strategyName: strategy?.strategyName ?? template?.strategyName ?? "",
+      marketType: strategy?.marketType ?? template?.marketType ?? "",
+      timeframe: strategy?.timeframe ?? template?.timeframe ?? "",
+      entryRules: strategy?.entryRules ?? template?.entryRules ?? "",
+      exitRules: strategy?.exitRules ?? template?.exitRules ?? "",
+      stopLossRules: strategy?.stopLossRules ?? template?.stopLossRules ?? "",
+      takeProfitRules: strategy?.takeProfitRules ?? template?.takeProfitRules ?? "",
+      riskRules: strategy?.riskRules ?? template?.riskRules ?? "",
       exampleScreenshotUrl: strategy?.exampleScreenshotUrl ?? "",
-      notes: strategy?.notes ?? "",
+      notes: strategy?.notes ?? (template ? buildTemplateNotes(template) : ""),
       isActive: strategy?.isActive ?? true,
     },
   });

@@ -17,6 +17,7 @@ import {
 import { useJournalStore } from "@/store";
 import type { Strategy, Trade } from "@/types";
 import { cn } from "@/lib/utils";
+import { StrategyTemplateLibrary } from "@/components/strategies/strategy-template-library";
 
 export function StrategyPlaybook() {
   const { user } = useAuth();
@@ -75,6 +76,8 @@ export function StrategyPlaybook() {
       </div>
 
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+
+      <StrategyTemplateLibrary onMessage={setMessage} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {strategies.map((strategy) => (

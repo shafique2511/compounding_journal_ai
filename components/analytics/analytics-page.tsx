@@ -3,6 +3,15 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   calculateAverageR,
   calculateDailyLossUsed,
   calculateMaxDrawdown,
@@ -64,6 +73,13 @@ export function AnalyticsPage() {
     0,
   );
   const mistakeStats = getMistakeStats(trades);
+  const strategyTemplateStats = getStrategyTemplateStats(trades);
+  const strategyChartData = strategyTemplateStats.map((stat) => ({
+    name: stat.name,
+    netProfit: round(stat.netProfit),
+    qualityScore: round(stat.averageTradeQualityScore),
+    mistakeCount: stat.mistakeCount,
+  }));
   const mostCommonMistake = mistakeStats[0]?.name ?? "-";
   const mostRepeatedLesson = topRepeatedText(trades.map((trade) => trade.lessonLearned));
   const mostRepeatedMistake = topRepeatedText(trades.map((trade) => trade.mistakeMade));
@@ -180,6 +196,44 @@ export function AnalyticsPage() {
       />
 
       <TableSection
+        columns={[
+          "Strategy",
+          "Trades",
+          "Win Rate",
+          "Loss Rate",
+          "Net Profit",
+          "Average R",
+          "Profit Factor",
+          "Max Drawdown",
+          "Avg Checklist",
+          "Avg Quality",
+          "Rule Discipline",
+          "Top Mistake",
+          "Reviewed",
+        ]}
+        rows={strategyTemplateStats.map((stat) => [
+          stat.name,
+          stat.totalTrades,
+          `${stat.winRate.toFixed(2)}%`,
+          `${stat.lossRate.toFixed(2)}%`,
+          money(stat.netProfit),
+          stat.averageR.toFixed(2),
+          formatFinite(stat.profitFactor),
+          `${stat.maxDrawdown.toFixed(2)}%`,
+          `${stat.averageChecklistScore.toFixed(2)}%`,
+          stat.averageTradeQualityScore.toFixed(2),
+          `${stat.ruleDisciplineScore.toFixed(2)}%`,
+          stat.mostCommonMistakeTag,
+          stat.reviewedTrades,
+        ])}
+        title="10. Strategy Template Analytics"
+      />
+
+      <ChartSection data={strategyChartData} title="Strategy performance comparison" valueKey="netProfit" />
+      <ChartSection data={strategyChartData} title="Strategy quality score comparison" valueKey="qualityScore" />
+      <ChartSection data={strategyChartData} title="Strategy mistake count comparison" valueKey="mistakeCount" />
+
+      <TableSection
         columns={["Month", "Net Profit", "Trades", "Win Rate", "Withdrawals"]}
         rows={unique(trades.map((trade) => trade.date.slice(0, 7))).map((month) => {
           const monthTrades = trades.filter((trade) => trade.date.startsWith(month));
@@ -191,10 +245,10 @@ export function AnalyticsPage() {
             money(sum(monthTrades, "withdrawalAmount")),
           ];
         })}
-        title="10. Monthly Analysis"
+        title="11. Monthly Analysis"
       />
 
-      <AnalysisSection title="11. Review Analysis">
+      <AnalysisSection title="12. Review Analysis">
         <Metric label="Reviewed trades count" value={trades.filter((trade) => trade.reviewCompleted).length} tone="profit" />
         <Metric label="Unreviewed losing trades count" value={trades.filter((trade) => trade.status === "Loss" && !trade.reviewCompleted).length} tone="loss" />
         <Metric label="Most repeated lesson" value={mostRepeatedLesson} tone="analytics" />
@@ -294,6 +348,43 @@ function TableSection({
   );
 }
 
+function ChartSection({
+  data,
+  title,
+  valueKey,
+}: {
+  data: { mistakeCount: number; name: string; netProfit: number; qualityScore: number }[];
+  title: string;
+  valueKey: "mistakeCount" | "netProfit" | "qualityScore";
+}) {
+  return (
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <div className="mt-4 h-72 rounded-lg border bg-background p-3">
+        {data.length > 0 ? (
+          <ResponsiveContainer height="100%" width="100%">
+            <BarChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                }}
+              />
+              <Bar dataKey={valueKey} fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="grid h-full place-items-center text-sm text-muted-foreground">No strategy data yet</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function Metric({
   label,
   tone = "neutral",
@@ -349,6 +440,30 @@ function getMistakeStats(trades: Trade[]) {
   })).sort((first, second) => second.count - first.count);
 }
 
+function getStrategyTemplateStats(trades: Trade[]) {
+  return unique(trades.map((trade) => trade.strategyName || "Unassigned")).map((name) => {
+    const strategyTrades = trades.filter((trade) => (trade.strategyName || "Unassigned") === name);
+    const mistakeStats = getMistakeStats(strategyTrades);
+
+    return {
+      name,
+      totalTrades: strategyTrades.length,
+      winRate: calculateWinRate(strategyTrades),
+      lossRate: rate(strategyTrades.filter((trade) => trade.status === "Loss").length, strategyTrades.length),
+      netProfit: sum(strategyTrades, "netProfitLoss"),
+      averageR: calculateAverageR(strategyTrades),
+      profitFactor: calculateProfitFactor(strategyTrades),
+      maxDrawdown: calculateMaxDrawdown(strategyTrades),
+      averageChecklistScore: average(strategyTrades.map((trade) => trade.checklistScore)),
+      averageTradeQualityScore: average(strategyTrades.map((trade) => trade.tradeQualityScore)),
+      ruleDisciplineScore: calculateRuleDisciplineScore(strategyTrades),
+      mostCommonMistakeTag: mistakeStats[0]?.name ?? "-",
+      mistakeCount: mistakeStats.reduce((total, stat) => total + stat.count, 0),
+      reviewedTrades: strategyTrades.filter((trade) => trade.reviewCompleted).length,
+    };
+  });
+}
+
 function topRepeatedText(values: string[]) {
   const counts = new Map<string, number>();
   values.map((value) => value.trim()).filter(Boolean).forEach((value) => {
@@ -392,6 +507,10 @@ function money(value: number) {
 
 function formatFinite(value: number) {
   return Number.isFinite(value) ? value.toFixed(2) : "∞";
+}
+
+function round(value: number) {
+  return Math.round((safe(value) + Number.EPSILON) * 100) / 100;
 }
 
 function startOfWeek(date: Date) {

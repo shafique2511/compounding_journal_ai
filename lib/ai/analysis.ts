@@ -90,6 +90,7 @@ export function buildAiInputSummary(
   const bestTrade = maxBy(sortedTrades, "netProfitLoss");
   const worstTrade = minBy(sortedTrades, "netProfitLoss");
   const strategyStats = calculateStrategyStats(sortedTrades);
+  const strategyTemplateReview = buildStrategyTemplateReview(sortedTrades, allStrategies);
   const equityCurve = calculateEquityCurve(sortedTrades).map((point) => ({
     tradeNumber: point.tradeNumber,
     equity: point.equity,
@@ -162,12 +163,16 @@ export function buildAiInputSummary(
     mistakeTags: calculateMistakeTagStats(sortedTrades),
     qualityGrades: calculateQualityGradeStats(sortedTrades),
     strategyPerformance: strategyStats,
+    strategyTemplateReview,
     activeStrategies: allStrategies
       .filter((strategy) => strategy.isActive)
       .map((strategy) => ({
         strategyName: strategy.strategyName,
         marketType: strategy.marketType,
         timeframe: strategy.timeframe,
+        entryRules: strategy.entryRules,
+        exitRules: strategy.exitRules,
+        riskRules: strategy.riskRules,
       })),
     timeframePerformance: groupPerformance(sortedTrades, (trade) => trade.timeframe),
     symbolPerformance: groupPerformance(sortedTrades, (trade) => trade.symbol),
@@ -225,9 +230,10 @@ export function buildAiPrompt(summary: AiInputSummary) {
     "15. Trade Quality Score Review",
     "16. Risk Rule Warning Review",
     "17. Strategy Playbook Review",
-    "18. Review Mode Summary",
-    "19. Equity Curve and Drawdown Review",
-    "20. Next 10-Trade Improvement Plan",
+    "18. Strategy Template Review",
+    "19. Review Mode Summary",
+    "20. Equity Curve and Drawdown Review",
+    "21. Next 10-Trade Improvement Plan",
     "",
     "Journal summary JSON:",
     JSON.stringify(summary),
@@ -295,6 +301,53 @@ function summarizeTrade(trade?: Trade) {
   };
 }
 
+function buildStrategyTemplateReview(trades: Trade[], strategies: Strategy[]) {
+  const groups = new Map<string, Trade[]>();
+
+  trades.forEach((trade) => {
+    const strategyName = trade.strategyName || "Unassigned";
+    groups.set(strategyName, [...(groups.get(strategyName) ?? []), trade]);
+  });
+
+  const stats = Array.from(groups, ([strategyName, strategyTrades]) => {
+    const mistakes = strategyTrades.flatMap((trade) => trade.mistakeTags);
+    const ruleViolations = strategyTrades.filter((trade) => trade.ruleFollowed === "No").length;
+
+    return {
+      strategyName,
+      totalTrades: strategyTrades.length,
+      winRate: calculateWinRate(strategyTrades),
+      netProfitLoss: sum(strategyTrades.map((trade) => trade.netProfitLoss)),
+      averageR: calculateAverageR(strategyTrades),
+      ruleViolations,
+      mistakeCount: mistakes.length,
+      mostCommonMistakeTags: countTextValues(mistakes).slice(0, 3),
+      averageChecklistScore: average(strategyTrades.map((trade) => trade.checklistScore)),
+      averageTradeQualityScore: average(strategyTrades.map((trade) => trade.tradeQualityScore)),
+    };
+  });
+
+  return {
+    mostUsedStrategy: maxByValue(stats, (stat) => stat.totalTrades)?.strategyName ?? "-",
+    bestPerformingStrategy: maxByValue(stats, (stat) => stat.netProfitLoss)?.strategyName ?? "-",
+    weakestStrategy: minByValue(stats, (stat) => stat.netProfitLoss)?.strategyName ?? "-",
+    bestAverageRStrategy: maxByValue(stats, (stat) => stat.averageR)?.strategyName ?? "-",
+    strategyWithMostRuleViolations: maxByValue(stats, (stat) => stat.ruleViolations)?.strategyName ?? "-",
+    strategyWithMostMistakeTags: maxByValue(stats, (stat) => stat.mistakeCount)?.strategyName ?? "-",
+    strategyStats: stats,
+    strategyRulesForReview: strategies.map((strategy) => ({
+      strategyName: strategy.strategyName,
+      entryRules: strategy.entryRules,
+      exitRules: strategy.exitRules,
+      stopLossRules: strategy.stopLossRules,
+      takeProfitRules: strategy.takeProfitRules,
+      riskRules: strategy.riskRules,
+      notes: strategy.notes,
+    })),
+    coachingInstruction: "Review whether the trader is following saved strategy rules. Suggest focus areas, not live entries or signals.",
+  };
+}
+
 function groupPerformance(trades: Trade[], keyFn: (trade: Trade) => string) {
   const groups = new Map<string, Trade[]>();
 
@@ -346,6 +399,20 @@ function maxBy(trades: Trade[], key: keyof Trade) {
 function minBy(trades: Trade[], key: keyof Trade) {
   return trades.reduce<Trade | undefined>(
     (worst, trade) => (!worst || safe(trade[key]) < safe(worst[key]) ? trade : worst),
+    undefined,
+  );
+}
+
+function maxByValue<T>(items: T[], valueFn: (item: T) => number) {
+  return items.reduce<T | undefined>(
+    (best, item) => (!best || valueFn(item) > valueFn(best) ? item : best),
+    undefined,
+  );
+}
+
+function minByValue<T>(items: T[], valueFn: (item: T) => number) {
+  return items.reduce<T | undefined>(
+    (worst, item) => (!worst || valueFn(item) < valueFn(worst) ? item : worst),
     undefined,
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { ImagePlus, Save, Trash2, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { BookOpen, ImagePlus, Plus, Save, Trash2, Upload } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -30,8 +30,9 @@ import {
   type TradeFormValues,
 } from "@/lib/trades/trade-ledger";
 import { recalculateTradesAfterChange } from "@/src/services/tradeService";
+import { StrategyTemplateLibrary } from "@/components/strategies/strategy-template-library";
 import { useJournalStore } from "@/store";
-import type { ScreenshotSlot, Trade } from "@/types";
+import type { ScreenshotSlot, Strategy, Trade } from "@/types";
 import { cn } from "@/lib/utils";
 
 const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"];
@@ -78,12 +79,16 @@ type TradeFormInput = Omit<TradeFormValues, "mistakeTags"> & {
 
 export function TradeForm({ trade }: TradeFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { settings, strategies, trades, setTrades } = useJournalStore();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [showChecklistWarning, setShowChecklistWarning] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [strategySearch, setStrategySearch] = useState("");
   const [pendingValues, setPendingValues] = useState<TradeFormInput | null>(null);
+  const selectedStrategyParam = searchParams.get("strategy") ?? "";
   const autoStartingBalance = useMemo(
     () => trade?.startingBalance ?? getNextStartingBalance(trades, settings.initialBalance),
     [settings.initialBalance, trade?.startingBalance, trades],
@@ -97,17 +102,16 @@ export function TradeForm({ trade }: TradeFormProps) {
   });
   const values = useWatch({ control: form.control });
   const [tradeId] = useState(() => trade?.id ?? crypto.randomUUID());
-  const strategyNames = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          strategies
-            .filter((strategy) => strategy.isActive)
-            .map((strategy) => strategy.strategyName)
-            .filter(Boolean),
-        ),
-      ),
+  const activeStrategies = useMemo(
+    () => strategies.filter((strategy) => strategy.isActive && strategy.strategyName),
     [strategies],
+  );
+  const filteredStrategies = useMemo(
+    () =>
+      activeStrategies.filter((strategy) =>
+        strategy.strategyName.toLowerCase().includes(strategySearch.trim().toLowerCase()),
+      ),
+    [activeStrategies, strategySearch],
   );
   const calculations = useMemo(() => {
     const netProfitLoss = calculateNetProfitLoss(values.grossProfitLoss, values.commission, values.swap);
@@ -162,6 +166,23 @@ export function TradeForm({ trade }: TradeFormProps) {
   useEffect(() => {
     form.setValue("startingBalance", autoStartingBalance, { shouldDirty: false });
   }, [autoStartingBalance, form]);
+
+  useEffect(() => {
+    if (!selectedStrategyParam) {
+      return;
+    }
+
+    const matchedStrategy = activeStrategies.find(
+      (strategy) => strategy.strategyName.toLowerCase() === selectedStrategyParam.toLowerCase(),
+    );
+    form.setValue("strategyName", matchedStrategy?.strategyName ?? selectedStrategyParam, { shouldDirty: true });
+    form.setValue("strategyId", matchedStrategy?.id ?? "", { shouldDirty: true });
+  }, [activeStrategies, form, selectedStrategyParam]);
+
+  function selectStrategy(strategy: Strategy | null, strategyName?: string) {
+    form.setValue("strategyName", strategy?.strategyName ?? strategyName ?? "", { shouldDirty: true });
+    form.setValue("strategyId", strategy?.id ?? "", { shouldDirty: true });
+  }
 
   async function handleSubmit(valuesToSubmit: TradeFormInput) {
     setError("");
@@ -272,12 +293,42 @@ export function TradeForm({ trade }: TradeFormProps) {
         <Select label="Status" {...form.register("status")}>
           {statuses.map((status) => <option key={status}>{status}</option>)}
         </Select>
-        <Select label="Strategy dropdown" {...form.register("strategyName")}>
+        <input type="hidden" {...form.register("strategyId")} />
+        <label className="space-y-2">
+          <span className="text-sm font-medium">Search strategy name</span>
+          <input
+            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => setStrategySearch(event.target.value)}
+            placeholder="Search My Strategy Playbook"
+            type="search"
+            value={strategySearch}
+          />
+        </label>
+        <Select
+          label="Strategy dropdown"
+          onChange={(event) => {
+            const matchedStrategy = activeStrategies.find((strategy) => strategy.id === event.target.value);
+            selectStrategy(matchedStrategy ?? null);
+          }}
+          value={activeStrategies.find((strategy) => strategy.strategyName === values.strategyName)?.id ?? ""}
+        >
           <option value="">No strategy selected</option>
-          {strategyNames.map((strategyName) => <option key={strategyName}>{strategyName}</option>)}
+          {filteredStrategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.strategyName}</option>)}
         </Select>
-        <Input label="Custom strategy input" {...form.register("strategyName")} />
+        <Input
+          label="Custom strategy input"
+          onChange={(event) => selectStrategy(null, event.target.value)}
+          value={values.strategyName ?? ""}
+        />
         <Input label="Setup Type" {...form.register("setupType")} />
+        <Button onClick={() => setShowTemplateLibrary(true)} type="button" variant="secondary">
+          <BookOpen aria-hidden="true" className="size-4" />
+          Browse Strategy Templates
+        </Button>
+        <Button onClick={() => router.push("/strategies/add")} type="button" variant="secondary">
+          <Plus aria-hidden="true" className="size-4" />
+          Add New Strategy
+        </Button>
       </Section>
 
       <Section title="2. Price Info">
@@ -415,6 +466,27 @@ export function TradeForm({ trade }: TradeFormProps) {
                 Save Anyway
               </Button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showTemplateLibrary ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="mb-3 flex justify-end">
+              <Button onClick={() => setShowTemplateLibrary(false)} type="button" variant="secondary">
+                Cancel
+              </Button>
+            </div>
+            <StrategyTemplateLibrary
+              compact
+              onMessage={setMessage}
+              onUseStrategy={(strategy) => {
+                selectStrategy(strategy);
+                setShowTemplateLibrary(false);
+                setMessage(`${strategy.strategyName} selected for this trade.`);
+              }}
+            />
           </div>
         </div>
       ) : null}
