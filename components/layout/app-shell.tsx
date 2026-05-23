@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { JournalDataSync } from "@/components/layout/journal-data-sync";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { MotionShell } from "@/components/layout/motion-shell";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -6,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <JournalDataSync />
       <Sidebar />
       <main className="min-h-screen px-4 py-5 pb-24 md:pl-72 md:pr-8 md:py-8">
         <div className="mx-auto w-full max-w-7xl">
