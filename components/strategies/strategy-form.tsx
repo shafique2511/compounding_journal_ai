@@ -80,7 +80,7 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
 
     if (user) {
       try {
-        await saveStrategy(user.uid, nextStrategy);
+        await saveStrategy(user.id, nextStrategy);
       } catch {
         setMessage("Strategy saved locally. Supabase could not sync it.");
         return;
@@ -103,7 +103,7 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
     }
 
     try {
-      const url = await uploadStrategyScreenshot(user.uid, strategyId, file);
+      const url = await uploadStrategyScreenshot(user.id, strategyId, file);
       form.setValue("exampleScreenshotUrl", url, { shouldDirty: true });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Screenshot upload failed.");

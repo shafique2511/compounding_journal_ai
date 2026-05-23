@@ -3,7 +3,7 @@ import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 
 let browserClient: SupabaseClient | null = null;
 
-export type SupabaseAuthUser = User & { uid: string };
+export type SupabaseAuthUser = User;
 
 export function createSupabaseBrowserClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -90,7 +90,7 @@ export async function getCurrentUser(): Promise<SupabaseAuthUser | null> {
     throw new Error(error.message);
   }
 
-  return withUid(data.user);
+  return data.user;
 }
 
 export async function requireUser() {
@@ -103,6 +103,6 @@ export async function requireUser() {
   return user;
 }
 
-export function withUid(user: User | null): SupabaseAuthUser | null {
-  return user ? Object.assign(user, { uid: user.id }) : null;
+export function normalizeSupabaseUser(user: User | null): SupabaseAuthUser | null {
+  return user;
 }

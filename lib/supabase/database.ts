@@ -23,29 +23,22 @@ type Row = {
 };
 
 export async function initializeUserAccount(user: {
-  uid?: string;
-  id?: string;
+  id: string;
   email?: string | null;
   displayName?: string | null;
   user_metadata?: { full_name?: string; name?: string };
 }) {
-  const userId = user.uid ?? user.id;
-
-  if (!userId) {
-    return;
-  }
-
   const supabase = requireSupabaseClient();
   const displayName = user.displayName ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? "";
   const { error: profileError } = await supabase
     .from("profiles")
-    .upsert({ id: userId, email: user.email ?? "", display_name: displayName });
+    .upsert({ id: user.id, email: user.email ?? "", display_name: displayName });
 
   if (profileError) {
     throwPostgrestError(profileError);
   }
 
-  await saveUserSettings(userId, DEFAULT_SETTINGS);
+  await saveUserSettings(user.id, DEFAULT_SETTINGS);
 }
 
 export async function listUserDocuments<T extends { id: string }>(

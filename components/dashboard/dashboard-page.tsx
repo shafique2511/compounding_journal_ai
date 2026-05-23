@@ -83,7 +83,7 @@ export function DashboardPage() {
       return;
     }
 
-    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+    listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
       .catch(() => undefined);
   }, [setFilterPresets, user]);

@@ -189,7 +189,7 @@ export function TradeForm({ trade }: TradeFormProps) {
 
     if (user) {
       try {
-        await Promise.all(recalculatedTrades.map((item) => saveTrade(user.uid, item)));
+        await Promise.all(recalculatedTrades.map((item) => saveTrade(user.id, item)));
       } catch {
         setMessage("Trade saved locally. Supabase could not sync the latest balances.");
         return;
@@ -212,7 +212,7 @@ export function TradeForm({ trade }: TradeFormProps) {
     }
 
     try {
-      const url = await uploadTradeScreenshot(user.uid, tradeId, slot, file);
+      const url = await uploadTradeScreenshot(user.id, tradeId, slot, file);
       form.setValue(slot === "beforeEntry" ? "beforeScreenshotUrl" : "afterScreenshotUrl", url, {
         shouldDirty: true,
       });

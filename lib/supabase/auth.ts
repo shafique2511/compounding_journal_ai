@@ -5,7 +5,7 @@ import {
   signIn,
   signOut,
   signUp,
-  withUid,
+  normalizeSupabaseUser,
   type SupabaseAuthUser,
 } from "@/src/lib/supabase/client";
 
@@ -15,7 +15,7 @@ export async function registerWithEmail(email: string, password: string) {
   const data = await signUp(email, password);
 
   if (data.user) {
-    await initializeUserAccount(withUid(data.user) as AuthUser);
+    await initializeUserAccount(data.user);
   }
 
   return data;
@@ -25,7 +25,7 @@ export async function loginWithEmail(email: string, password: string) {
   const data = await signIn(email, password);
 
   if (data.user) {
-    await initializeUserAccount(withUid(data.user) as AuthUser);
+    await initializeUserAccount(data.user);
   }
 
   return data;
@@ -61,11 +61,11 @@ export function subscribeToAuthState(callback: (user: AuthUser | null) => void) 
   const supabase = requireSupabaseBrowserClient();
 
   supabase.auth.getUser().then(({ data }) => {
-    callback(withUid(data.user));
+    callback(normalizeSupabaseUser(data.user));
   });
 
   const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(withUid(session?.user ?? null));
+    callback(normalizeSupabaseUser(session?.user ?? null));
   });
 
   return () => data.subscription.unsubscribe();

@@ -35,7 +35,7 @@ export function AnalyticsPage() {
       return;
     }
 
-    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+    listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
       .catch(() => undefined);
   }, [setFilterPresets, user]);

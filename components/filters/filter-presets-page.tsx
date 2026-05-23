@@ -53,7 +53,7 @@ export function FilterPresetsPage() {
       return;
     }
 
-    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+    listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
       .catch(() => undefined);
   }, [setFilterPresets, user]);
@@ -97,7 +97,7 @@ export function FilterPresetsPage() {
 
     if (user) {
       try {
-        await saveFilterPreset(user.uid, preset);
+        await saveFilterPreset(user.id, preset);
       } catch {
         setMessage("Filter preset saved locally. Supabase is not available.");
       }
@@ -113,7 +113,7 @@ export function FilterPresetsPage() {
 
     if (user) {
       try {
-        await deleteUserDocument(user.uid, "filterPresets", preset.id);
+        await deleteUserDocument(user.id, "filterPresets", preset.id);
       } catch {
         setMessage("Filter preset deleted locally. Supabase is not available.");
       }

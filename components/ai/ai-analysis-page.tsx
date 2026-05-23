@@ -112,7 +112,7 @@ export function AiAnalysisPage() {
 
       if (user && settings.saveAiAnalysisHistory) {
         try {
-          await saveAiAnalysis(user.uid, {
+          await saveAiAnalysis(user.id, {
             id: crypto.randomUUID(),
             provider: settings.aiProvider,
             model: data.model || settings.aiModel,
@@ -147,7 +147,7 @@ export function AiAnalysisPage() {
     }
 
     try {
-      await saveAiAnalysis(user.uid, {
+      await saveAiAnalysis(user.id, {
         id: crypto.randomUUID(),
         provider: settings.aiProvider,
         model: settings.aiModel,

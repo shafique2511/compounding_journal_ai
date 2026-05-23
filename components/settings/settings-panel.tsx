@@ -79,9 +79,9 @@ export function SettingsPanel() {
     setMessage("Settings saved.");
 
     if (user) {
-      await saveUserSettings(user.uid, nextSettings).catch(() => undefined);
+      await saveUserSettings(user.id, nextSettings).catch(() => undefined);
       if (recalculatedTrades !== trades) {
-        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.uid, trade))).catch(() => undefined);
+        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.id, trade))).catch(() => undefined);
       }
     }
   }

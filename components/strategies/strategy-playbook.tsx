@@ -29,7 +29,7 @@ export function StrategyPlaybook() {
 
     if (user) {
       try {
-        await saveStrategy(user.uid, nextStrategy);
+        await saveStrategy(user.id, nextStrategy);
       } catch {
         setMessage("Strategy updated locally. Supabase could not sync the change.");
       }
@@ -45,7 +45,7 @@ export function StrategyPlaybook() {
 
     if (user) {
       try {
-        await deleteUserDocument(user.uid, "strategies", strategyToDelete.id);
+        await deleteUserDocument(user.id, "strategies", strategyToDelete.id);
       } catch {
         setMessage("Strategy deleted locally. Supabase could not sync the deletion.");
       }

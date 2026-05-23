@@ -62,9 +62,9 @@ export function ExportBackupPage() {
     }
 
     Promise.all([
-      listUserDocuments<AiAnalysis>(user.uid, "aiAnalyses"),
-      listUserDocuments<Strategy>(user.uid, "strategies"),
-      listUserDocuments<FilterPreset>(user.uid, "filterPresets"),
+      listUserDocuments<AiAnalysis>(user.id, "aiAnalyses"),
+      listUserDocuments<Strategy>(user.id, "strategies"),
+      listUserDocuments<FilterPreset>(user.id, "filterPresets"),
     ])
       .then(([remoteAiAnalyses, remoteStrategies, remoteFilterPresets]) => {
         setAiAnalyses(remoteAiAnalyses);
@@ -167,11 +167,11 @@ export function ExportBackupPage() {
 
     if (user) {
       await Promise.all([
-        saveUserSettings(user.uid, pendingBackup.settings),
-        ...pendingBackup.trades.map((trade) => saveTrade(user.uid, trade)),
-        ...pendingBackup.aiAnalyses.map((analysis) => saveAiAnalysis(user.uid, analysis)),
-        ...pendingBackup.strategies.map((strategy) => saveStrategy(user.uid, strategy)),
-        ...pendingBackup.filterPresets.map((preset) => saveFilterPreset(user.uid, preset)),
+        saveUserSettings(user.id, pendingBackup.settings),
+        ...pendingBackup.trades.map((trade) => saveTrade(user.id, trade)),
+        ...pendingBackup.aiAnalyses.map((analysis) => saveAiAnalysis(user.id, analysis)),
+        ...pendingBackup.strategies.map((strategy) => saveStrategy(user.id, strategy)),
+        ...pendingBackup.filterPresets.map((preset) => saveFilterPreset(user.id, preset)),
       ]).catch(() => undefined);
     }
 

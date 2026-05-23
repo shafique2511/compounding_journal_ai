@@ -60,7 +60,7 @@ export function ReviewPage() {
 
     if (user) {
       try {
-        await saveTrade(user.uid, nextTrade);
+        await saveTrade(user.id, nextTrade);
       } catch {
         setMessage(`Review updated locally for trade #${trade.tradeNumber}. Supabase could not sync it.`);
       }

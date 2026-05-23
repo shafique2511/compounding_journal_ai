@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import type { SupabaseAuthUser } from "@/src/lib/supabase/client";
 
 export async function createSupabaseServerClient() {
@@ -60,7 +60,7 @@ export async function getCurrentUser(): Promise<SupabaseAuthUser | null> {
     throw new Error(error.message);
   }
 
-  return withUid(data.user);
+  return data.user;
 }
 
 export async function requireUser() {
@@ -71,8 +71,4 @@ export async function requireUser() {
   }
 
   return user;
-}
-
-function withUid(user: User | null): SupabaseAuthUser | null {
-  return user ? Object.assign(user, { uid: user.id }) : null;
 }

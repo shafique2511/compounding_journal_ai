@@ -39,7 +39,7 @@ export function TradeJournal() {
       return;
     }
 
-    listTrades(user.uid)
+    listTrades(user.id)
       .then((remoteTrades) => {
         if (remoteTrades.length > 0) {
           setTrades(recalculateTradesInSequence(remoteTrades, settings.initialBalance));
@@ -47,7 +47,7 @@ export function TradeJournal() {
       })
       .catch(() => undefined);
 
-    listUserDocuments<FilterPreset>(user.uid, "filterPresets")
+    listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
       .catch(() => undefined);
   }, [settings.initialBalance, setFilterPresets, setTrades, user]);
@@ -86,8 +86,8 @@ export function TradeJournal() {
 
     if (user) {
       try {
-        await deleteUserDocument(user.uid, "trades", tradeToDelete.id);
-        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.uid, trade)));
+        await deleteUserDocument(user.id, "trades", tradeToDelete.id);
+        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.id, trade)));
       } catch {
         setMessage("Trade deleted locally. Supabase could not sync the change.");
       }
