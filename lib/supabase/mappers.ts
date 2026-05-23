@@ -1,157 +1,21 @@
 import type { AiAnalysis, AppSettings, FilterPreset, Strategy, Trade } from "@/types";
+import type { Json, Tables, TablesInsert, TablesUpdate } from "@/src/types/supabase";
 
-export type TradeRow = {
-  id: string;
-  user_id: string;
-  trade_number: number;
-  date: string;
-  time: string;
-  timestamp: number | string;
-  symbol: string;
-  direction: string;
-  timeframe: string;
-  entry_price: number | string | null;
-  stop_loss: number | string | null;
-  take_profit: number | string | null;
-  lot_size: number | string | null;
-  risk_amount: number | string | null;
-  reward_amount: number | string | null;
-  gross_profit_loss: number | string | null;
-  commission: number | string | null;
-  swap: number | string | null;
-  net_profit_loss: number | string | null;
-  withdrawal_amount: number | string | null;
-  starting_balance: number | string | null;
-  ending_balance: number | string | null;
-  growth_percent: number | string | null;
-  risk_reward_ratio: number | string | null;
-  r_multiple: number | string | null;
-  status: string;
-  strategy_name: string | null;
-  strategy_id: string | null;
-  setup_type: string | null;
-  emotion_before: string | null;
-  emotion_after: string | null;
-  mistake_made: string | null;
-  lesson_learned: string | null;
-  notes: string | null;
-  before_screenshot_url: string | null;
-  after_screenshot_url: string | null;
-  checklist_trend_confirmed: boolean | null;
-  checklist_key_level_confirmed: boolean | null;
-  checklist_entry_reason_confirmed: boolean | null;
-  checklist_stop_loss_planned: boolean | null;
-  checklist_take_profit_planned: boolean | null;
-  checklist_risk_accepted: boolean | null;
-  checklist_no_revenge_trade: boolean | null;
-  checklist_no_overlot: boolean | null;
-  checklist_news_checked: boolean | null;
-  checklist_emotion_stable: boolean | null;
-  checklist_score: number | string | null;
-  checklist_status: string | null;
-  mistake_tags: string[] | null;
-  rule_followed: string | null;
-  rule_broken_notes: string | null;
-  trade_quality_score: number | string | null;
-  trade_quality_grade: string | null;
-  review_completed: boolean | null;
-  review_date: string | null;
-  review_notes: string | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type TradeInsert = Omit<TradeRow, "created_at" | "updated_at"> & { updated_at?: string };
-export type TradeUpdate = Partial<TradeInsert> & { id: string; user_id: string };
-
-export type SettingsRow = {
-  id: string;
-  user_id: string;
-  initial_balance: number | string | null;
-  currency: string | null;
-  timezone_offset: string | null;
-  date_format: string | null;
-  time_format: string | null;
-  default_timeframe: string | null;
-  default_symbol: string | null;
-  default_commission: number | string | null;
-  default_swap: number | string | null;
-  theme_mode: string | null;
-  accent_color: string | null;
-  ai_provider: string | null;
-  ai_model: string | null;
-  enable_screenshot_analysis: boolean | null;
-  save_ai_analysis_history: boolean | null;
-  max_risk_per_trade_percent: number | string | null;
-  max_daily_loss_percent: number | string | null;
-  max_weekly_loss_percent: number | string | null;
-  max_trades_per_day: number | string | null;
-  max_losing_streak_warning: number | string | null;
-  minimum_risk_reward_ratio: number | string | null;
-  enable_risk_warning: boolean | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
+export type TradeRow = Tables<"trades">;
+export type TradeInsert = TablesInsert<"trades">;
+export type TradeUpdate = TablesUpdate<"trades">;
+export type SettingsRow = Tables<"user_settings">;
 export type UserSettings = AppSettings & { id: string };
-export type SettingsUpdate = Partial<Omit<SettingsRow, "created_at" | "id" | "updated_at">> & {
-  user_id: string;
-};
-
-export type StrategyRow = {
-  id: string;
-  user_id: string;
-  strategy_name: string;
-  market_type: string | null;
-  timeframe: string | null;
-  entry_rules: string | null;
-  exit_rules: string | null;
-  stop_loss_rules: string | null;
-  take_profit_rules: string | null;
-  risk_rules: string | null;
-  example_screenshot_url: string | null;
-  notes: string | null;
-  is_active: boolean | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type StrategyInsert = Omit<StrategyRow, "created_at" | "updated_at"> & { updated_at?: string };
-export type StrategyUpdate = Partial<StrategyInsert> & { id: string; user_id: string };
-
-export type FilterPresetRow = {
-  id: string;
-  user_id: string;
-  preset_name: string;
-  date_filter: string | null;
-  symbol_filter: string | null;
-  timeframe_filter: string | null;
-  strategy_filter: string | null;
-  status_filter: string | null;
-  quality_grade_filter: string | null;
-  rule_followed_filter: string | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type FilterPresetInsert = Omit<FilterPresetRow, "created_at" | "updated_at"> & { updated_at?: string };
-export type FilterPresetUpdate = Partial<FilterPresetInsert> & { id: string; user_id: string };
-
-export type AiAnalysisRow = {
-  id: string;
-  user_id: string;
-  provider: string;
-  model: string | null;
-  analysis_type: string | null;
-  date_range: string | null;
-  input_summary: Record<string, unknown> | null;
-  result: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type AiAnalysisInsert = Omit<AiAnalysisRow, "created_at" | "updated_at"> & { updated_at?: string };
-export type AiAnalysisUpdate = Partial<AiAnalysisInsert> & { id: string; user_id: string };
+export type SettingsUpdate = TablesUpdate<"user_settings"> & { user_id: string };
+export type StrategyRow = Tables<"strategies">;
+export type StrategyInsert = TablesInsert<"strategies">;
+export type StrategyUpdate = TablesUpdate<"strategies">;
+export type FilterPresetRow = Tables<"filter_presets">;
+export type FilterPresetInsert = TablesInsert<"filter_presets">;
+export type FilterPresetUpdate = TablesUpdate<"filter_presets">;
+export type AiAnalysisRow = Tables<"ai_analyses">;
+export type AiAnalysisInsert = TablesInsert<"ai_analyses">;
+export type AiAnalysisUpdate = TablesUpdate<"ai_analyses">;
 
 export function tradeFromRow(row: TradeRow): Trade {
   return {
@@ -428,7 +292,7 @@ export function aiAnalysisFromRow(row: AiAnalysisRow): AiAnalysis {
     model: row.model ?? "",
     analysisType: row.analysis_type ?? "",
     dateRange: row.date_range ?? "",
-    inputSummary: row.input_summary ?? {},
+    inputSummary: record(row.input_summary),
     result: row.result,
     createdAt: timestamp(row.created_at),
   };
@@ -442,7 +306,7 @@ export function aiAnalysisToInsert(analysis: AiAnalysis, userId: string): AiAnal
     model: analysis.model,
     analysis_type: analysis.analysisType,
     date_range: analysis.dateRange,
-    input_summary: analysis.inputSummary,
+    input_summary: json(analysis.inputSummary),
     result: analysis.result,
     updated_at: new Date().toISOString(),
   };
@@ -480,4 +344,14 @@ function status(value: string): Trade["status"] {
 
 function qualityGrade(value: unknown): Trade["tradeQualityGrade"] {
   return value === "A+" || value === "A" || value === "B" || value === "C" ? value : "D";
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function json(value: Record<string, unknown>): Json {
+  return JSON.parse(JSON.stringify(value)) as Json;
 }

@@ -90,20 +90,44 @@ export async function listTrades(userId: string) {
   return ((data ?? []) as TradeRow[]).map(tradeFromRow);
 }
 
-export function saveTrade(userId: string, trade: Trade) {
-  return upsertRow("trades", tradeToInsert(trade, userId));
+export async function saveTrade(userId: string, trade: Trade) {
+  const { error } = await requireSupabaseClient()
+    .from("trades")
+    .upsert(tradeToInsert(trade, userId));
+
+  if (error) {
+    throwPostgrestError(error);
+  }
 }
 
-export function saveStrategy(userId: string, strategy: Strategy) {
-  return upsertRow("strategies", strategyToInsert(strategy, userId));
+export async function saveStrategy(userId: string, strategy: Strategy) {
+  const { error } = await requireSupabaseClient()
+    .from("strategies")
+    .upsert(strategyToInsert(strategy, userId));
+
+  if (error) {
+    throwPostgrestError(error);
+  }
 }
 
-export function saveAiAnalysis(userId: string, analysis: AiAnalysis) {
-  return upsertRow("aiAnalyses", aiAnalysisToInsert(analysis, userId));
+export async function saveAiAnalysis(userId: string, analysis: AiAnalysis) {
+  const { error } = await requireSupabaseClient()
+    .from("ai_analyses")
+    .upsert(aiAnalysisToInsert(analysis, userId));
+
+  if (error) {
+    throwPostgrestError(error);
+  }
 }
 
-export function saveFilterPreset(userId: string, preset: FilterPreset) {
-  return upsertRow("filterPresets", filterPresetToInsert(preset, userId));
+export async function saveFilterPreset(userId: string, preset: FilterPreset) {
+  const { error } = await requireSupabaseClient()
+    .from("filter_presets")
+    .upsert(filterPresetToInsert(preset, userId));
+
+  if (error) {
+    throwPostgrestError(error);
+  }
 }
 
 export async function saveUserSettings(userId: string, settings: AppSettings) {
@@ -146,19 +170,6 @@ export async function deleteUserDocuments(
     .from(tableMap[collectionName])
     .delete()
     .eq("user_id", userId);
-
-  if (error) {
-    throwPostgrestError(error);
-  }
-}
-
-async function upsertRow(
-  collectionName: UserCollection,
-  data: Record<string, unknown>,
-) {
-  const { error } = await requireSupabaseClient()
-    .from(tableMap[collectionName])
-    .upsert(data);
 
   if (error) {
     throwPostgrestError(error);
