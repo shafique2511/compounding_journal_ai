@@ -21,6 +21,7 @@ import {
   calculateWinRate,
 } from "@/lib/calculations";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { listUserDocuments } from "@/lib/supabase";
 import { filterTradesByPreset } from "@/lib/filters/filter-presets";
 import { useJournalStore } from "@/store";
@@ -33,6 +34,8 @@ export function AnalyticsPage() {
   const { user } = useAuth();
   const { filterPresets, settings, setFilterPresets, trades: allTrades } = useJournalStore();
   const [presetId, setPresetId] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  useEscapeToClose(showFilters, () => setShowFilters(false));
   const selectedPreset = filterPresets.find((preset) => preset.id === presetId);
   const trades = useMemo(
     () => filterTradesByPreset(allTrades, selectedPreset),
@@ -89,7 +92,19 @@ export function AnalyticsPage() {
       <Header />
 
       <div className="rounded-lg border bg-card p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:hidden">
+          <button
+            className="h-11 rounded-md border bg-secondary px-3 text-sm font-medium text-secondary-foreground"
+            onClick={() => setShowFilters(true)}
+            type="button"
+          >
+            Open Analytics Filters
+          </button>
+          <div className="rounded-full border bg-background px-3 py-1.5 text-sm text-muted-foreground">
+            {presetId ? `${trades.length} trades match preset` : "No preset applied"}
+          </div>
+        </div>
+        <div className="hidden gap-3 md:grid md:grid-cols-3">
           <Select value={presetId} onChange={setPresetId}>
             <option value="">All trades</option>
             {filterPresets.map((preset) => (
@@ -254,6 +269,24 @@ export function AnalyticsPage() {
         <Metric label="Most repeated lesson" value={mostRepeatedLesson} tone="analytics" />
         <Metric label="Most repeated mistake" value={mostRepeatedMistake} tone="withdrawal" />
       </AnalysisSection>
+
+      {showFilters ? (
+        <div className="fixed inset-0 z-50 bg-background/80 p-4 backdrop-blur-sm md:hidden">
+          <button aria-label="Close analytics filters" className="fixed inset-0" onClick={() => setShowFilters(false)} type="button" />
+          <div className="relative mx-auto max-h-[calc(100vh-2rem)] max-w-md overflow-y-auto rounded-lg border bg-card p-4 shadow-lg">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">Analytics Filters</h3>
+              <button className="rounded-md border bg-secondary px-3 py-2 text-sm" onClick={() => setShowFilters(false)} type="button">Done</button>
+            </div>
+            <Select value={presetId} onChange={setPresetId}>
+              <option value="">All trades</option>
+              {filterPresets.map((preset) => (
+                <option key={preset.id} value={preset.id}>{preset.presetName}</option>
+              ))}
+            </Select>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -269,7 +302,7 @@ function Select({
 }) {
   return (
     <select
-      className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm"
       onChange={(event) => onChange(event.target.value)}
       value={value}
     >
@@ -294,10 +327,10 @@ function Header() {
 
 function AnalysisSection({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+    <details className="rounded-lg border bg-card p-4 shadow-sm md:p-5" open>
+      <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">{title}</summary>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
-    </section>
+    </details>
   );
 }
 
@@ -313,8 +346,8 @@ function TableSection({
   title: string;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+    <details className="rounded-lg border bg-card p-4 shadow-sm md:p-5" open>
+      <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">{title}</summary>
       {summary.length > 0 ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {summary.map(([label, value]) => (
@@ -322,7 +355,21 @@ function TableSection({
           ))}
         </div>
       ) : null}
-      <div className="mt-4 overflow-x-auto rounded-lg border">
+      <div className="mt-4 grid gap-3 md:hidden">
+        {rows.length > 0 ? rows.map((row, index) => (
+          <div className="rounded-lg border bg-background p-3" key={`${row[0]}-card-${index}`}>
+            {row.map((cell, cellIndex) => (
+              <div className="flex justify-between gap-3 border-b py-2 last:border-0" key={`${cell}-${cellIndex}`}>
+                <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{columns[cellIndex]}</span>
+                <span className="break-words text-right text-sm font-medium">{cell}</span>
+              </div>
+            ))}
+          </div>
+        )) : (
+          <div className="rounded-lg border bg-background p-6 text-center text-sm text-muted-foreground">No data yet</div>
+        )}
+      </div>
+      <div className="mt-4 hidden overflow-x-auto rounded-lg border md:block">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-muted/60 text-left text-xs uppercase tracking-[0.12em] text-muted-foreground">
             <tr>
@@ -344,7 +391,7 @@ function TableSection({
           </tbody>
         </table>
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -358,14 +405,14 @@ function ChartSection({
   valueKey: "mistakeCount" | "netProfit" | "qualityScore";
 }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
+    <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-      <div className="mt-4 h-72 rounded-lg border bg-background p-3">
+      <div className="mt-4 h-64 rounded-lg border bg-background p-3 md:h-80 xl:h-96">
         {data.length > 0 ? (
           <ResponsiveContainer height="100%" width="100%">
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="name" interval="preserveStartEnd" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
@@ -404,7 +451,7 @@ function Metric({
   return (
     <div className="rounded-lg border bg-background p-4">
       <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className={`mt-2 text-xl font-semibold ${toneClass}`}>{value}</p>
+      <p className={`mt-2 break-words text-lg font-semibold min-[375px]:text-xl ${toneClass}`}>{value}</p>
     </div>
   );
 }

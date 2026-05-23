@@ -5,6 +5,7 @@ import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { saveTrade } from "@/lib/supabase";
 import { useJournalStore } from "@/store";
@@ -40,7 +41,9 @@ export function ReviewPage() {
   const { user } = useAuth();
   const { setTrades, trades } = useJournalStore();
   const [activeFilter, setActiveFilter] = useState<ReviewFilter>("unreviewed");
+  const [showFilters, setShowFilters] = useState(false);
   const [message, setMessage] = useState("");
+  useEscapeToClose(showFilters, () => setShowFilters(false));
   const filteredTrades = useMemo(
     () => filterReviewTrades(trades, activeFilter),
     [activeFilter, trades],
@@ -82,7 +85,14 @@ export function ReviewPage() {
       </div>
 
       <div className="rounded-lg border bg-card p-4 shadow-sm">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="flex items-center justify-between gap-3 md:hidden">
+          <div>
+            <p className="text-sm font-medium">{filterOptions.find((option) => option.value === activeFilter)?.label}</p>
+            <p className="text-xs text-muted-foreground">{filteredTrades.length} trades</p>
+          </div>
+          <Button onClick={() => setShowFilters(true)} type="button" variant="secondary">Filters</Button>
+        </div>
+        <div className="hidden gap-2 md:grid md:grid-cols-2 lg:grid-cols-5">
           {filterOptions.map((option) => (
             <button
               className={cn(
@@ -111,6 +121,36 @@ export function ReviewPage() {
           </div>
         ) : null}
       </div>
+
+      {showFilters ? (
+        <div className="fixed inset-0 z-50 bg-background/80 p-4 backdrop-blur-sm md:hidden">
+          <button aria-label="Close review filters" className="fixed inset-0" onClick={() => setShowFilters(false)} type="button" />
+          <div className="relative mx-auto max-h-[calc(100vh-2rem)] max-w-md overflow-y-auto rounded-lg border bg-card p-4 shadow-lg">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">Review Filters</h3>
+              <Button onClick={() => setShowFilters(false)} type="button" variant="secondary">Done</Button>
+            </div>
+            <div className="grid gap-2">
+              {filterOptions.map((option) => (
+                <button
+                  className={cn(
+                    "rounded-md border px-3 py-3 text-left text-sm transition-colors",
+                    activeFilter === option.value && "border-primary bg-primary text-primary-foreground",
+                  )}
+                  key={option.value}
+                  onClick={() => {
+                    setActiveFilter(option.value);
+                    setShowFilters(false);
+                  }}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -141,7 +181,7 @@ function ReviewCard({
   }
 
   return (
-    <article className="rounded-lg border bg-card p-5 shadow-sm">
+    <article className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -192,7 +232,7 @@ function ReviewCard({
           <label className="space-y-2">
             <span className="text-sm font-medium">Review date</span>
             <input
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm"
               onChange={(event) => setReviewDate(event.target.value)}
               type="date"
               value={reviewDate}
@@ -202,7 +242,7 @@ function ReviewCard({
         <label className="space-y-2">
           <span className="text-sm font-medium">Review notes</span>
           <textarea
-            className="min-h-32 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-36 w-full rounded-md border bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
             onChange={(event) => setReviewNotes(event.target.value)}
             value={reviewNotes}
           />
@@ -210,7 +250,7 @@ function ReviewCard({
       </div>
 
       <div className="mt-4 flex justify-end">
-        <Button disabled={isSaving} onClick={handleSave} type="button">
+        <Button className="h-11 w-full md:w-auto" disabled={isSaving} onClick={handleSave} type="button">
           <Save aria-hidden="true" className="size-4" />
           {isSaving ? "Saving..." : "Save Review"}
         </Button>

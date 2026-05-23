@@ -6,6 +6,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { listTrades, listUserDocuments } from "@/lib/supabase";
 import { applyFilterPresetToTradeFilters } from "@/lib/filters/filter-presets";
@@ -34,7 +35,10 @@ export function TradeJournal() {
   const [presetId, setPresetId] = useState("");
   const [sort, setSort] = useState<TradeSort>("newest");
   const [tradeToDelete, setTradeToDelete] = useState<Trade | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [message, setMessage] = useState("");
+  useEscapeToClose(showMobileFilters, () => setShowMobileFilters(false));
+  useEscapeToClose(Boolean(tradeToDelete), () => setTradeToDelete(null));
 
   useEffect(() => {
     if (!user) {
@@ -100,6 +104,11 @@ export function TradeJournal() {
     }
   }
 
+  function clearFilters() {
+    setPresetId("");
+    setFilters(EMPTY_TRADE_FILTERS);
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-5 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -118,60 +127,58 @@ export function TradeJournal() {
       </div>
 
       <div className="rounded-lg border bg-card p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-5">
-          <label className="relative md:col-span-2">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="h-10 w-full rounded-md border bg-background pl-9 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onChange={(event) => setFilters({ ...filters, search: event.target.value })}
-              placeholder="Search symbol, strategy, mistakes"
-              value={filters.search}
-            />
-          </label>
-          <Input type="date" value={filters.dateFrom} onChange={(value) => setFilters({ ...filters, dateFrom: value })} />
-          <Input type="date" value={filters.dateTo} onChange={(value) => setFilters({ ...filters, dateTo: value })} />
-          <Select value={filters.symbol} onChange={(value) => setFilters({ ...filters, symbol: value })}>
-            <option value="">All symbols</option>
-            {symbols.map((symbol) => <option key={symbol}>{symbol}</option>)}
-          </Select>
-          <Select value={filters.timeframe} onChange={(value) => setFilters({ ...filters, timeframe: value })}>
-            <option value="">All timeframes</option>
-            {timeframes.map((timeframe) => <option key={timeframe}>{timeframe}</option>)}
-          </Select>
-          <Select value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })}>
-            <option value="">All status</option>
-            {statuses.map((status) => <option key={status}>{status}</option>)}
-          </Select>
-          <Select value={filters.strategy} onChange={(value) => setFilters({ ...filters, strategy: value })}>
-            <option value="">All strategies</option>
-            {strategies.map((strategy) => <option key={strategy}>{strategy}</option>)}
-          </Select>
-          <Select value={filters.qualityGrade} onChange={(value) => setFilters({ ...filters, qualityGrade: value })}>
-            <option value="">All grades</option>
-            {qualityGrades.map((grade) => <option key={grade}>{grade}</option>)}
-          </Select>
-          <Select value={filters.ruleFollowed} onChange={(value) => setFilters({ ...filters, ruleFollowed: value })}>
-            <option value="">All rule status</option>
-            {ruleStatuses.map((rule) => <option key={rule}>{rule}</option>)}
-          </Select>
-          <Select value={presetId} onChange={applyPreset}>
-            <option value="">Saved filter presets</option>
-            {filterPresets.map((preset) => (
-              <option key={preset.id} value={preset.id}>{preset.presetName}</option>
-            ))}
-          </Select>
-          <Select value={sort} onChange={(value) => setSort(value as TradeSort)}>
-            <option value="newest">Sort by newest</option>
-            <option value="oldest">Sort by oldest</option>
-            <option value="highest-profit">Sort by highest profit</option>
-            <option value="biggest-loss">Sort by biggest loss</option>
-          </Select>
+        <label className="relative block md:hidden">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            className="h-11 w-full rounded-md border bg-background pl-9 pr-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => setFilters({ ...filters, search: event.target.value })}
+            placeholder="Search trades"
+            value={filters.search}
+          />
+        </label>
+        <div className="mt-3 flex gap-2 md:hidden">
+          <Button className="flex-1" onClick={() => setShowMobileFilters(true)} type="button" variant="secondary">Filters</Button>
+          <Button className="flex-1" onClick={clearFilters} type="button" variant="ghost">Clear</Button>
+        </div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
+          {filterPresets.map((preset) => (
+            <button
+              className={cn("shrink-0 rounded-full border px-3 py-1.5 text-sm", presetId === preset.id ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}
+              key={preset.id}
+              onClick={() => applyPreset(preset.id)}
+              type="button"
+            >
+              {preset.presetName}
+            </button>
+          ))}
+        </div>
+        <div className="hidden md:block">
+          <JournalFilterControls
+            applyPreset={applyPreset}
+            filterPresets={filterPresets}
+            filters={filters}
+            presetId={presetId}
+            setFilters={setFilters}
+            setSort={setSort}
+            sort={sort}
+            strategies={strategies}
+            symbols={symbols}
+          />
         </div>
       </div>
 
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
 
-      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+      <div className="grid gap-3 md:hidden">
+        {filteredTrades.map((trade) => (
+          <TradeMobileCard key={trade.id} onDelete={() => setTradeToDelete(trade)} trade={trade} />
+        ))}
+        {filteredTrades.length === 0 ? (
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">No trades match the current filters.</div>
+        ) : null}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-lg border bg-card shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-muted/60 text-left text-xs uppercase tracking-[0.12em] text-muted-foreground">
@@ -213,15 +220,38 @@ export function TradeJournal() {
 
       {tradeToDelete ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-lg border bg-card p-5 shadow-lg">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-card p-5 shadow-lg">
             <h3 className="text-lg font-semibold">Delete trade #{tradeToDelete.tradeNumber}?</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               This will delete the trade, reorder trade numbers, and recalculate following balances.
             </p>
-            <div className="mt-5 flex justify-end gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <Button onClick={() => setTradeToDelete(null)} type="button" variant="secondary">Cancel</Button>
               <Button onClick={confirmDelete} type="button">Delete Trade</Button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showMobileFilters ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm md:hidden">
+          <button aria-label="Close journal filters" className="fixed inset-0" onClick={() => setShowMobileFilters(false)} type="button" />
+          <div className="relative mx-auto max-h-[calc(100vh-2rem)] max-w-md overflow-y-auto rounded-lg border bg-card p-4 shadow-lg">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">Journal Filters</h3>
+              <Button onClick={() => setShowMobileFilters(false)} type="button" variant="secondary">Done</Button>
+            </div>
+            <JournalFilterControls
+              applyPreset={applyPreset}
+              filterPresets={filterPresets}
+              filters={filters}
+              presetId={presetId}
+              setFilters={setFilters}
+              setSort={setSort}
+              sort={sort}
+              strategies={strategies}
+              symbols={symbols}
+            />
           </div>
         </div>
       ) : null}
@@ -266,6 +296,114 @@ export function TradeDetail({ tradeId }: { tradeId: string }) {
   return <TradeDetailCard trade={trade} />;
 }
 
+function JournalFilterControls({
+  applyPreset,
+  filterPresets,
+  filters,
+  presetId,
+  setFilters,
+  setSort,
+  sort,
+  strategies,
+  symbols,
+}: {
+  applyPreset: (presetId: string) => void;
+  filterPresets: FilterPreset[];
+  filters: TradeFilters;
+  presetId: string;
+  setFilters: (filters: TradeFilters) => void;
+  setSort: (sort: TradeSort) => void;
+  sort: TradeSort;
+  strategies: string[];
+  symbols: string[];
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-5">
+      <label className="relative md:col-span-2">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          className="h-11 w-full rounded-md border bg-background pl-9 pr-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm"
+          onChange={(event) => setFilters({ ...filters, search: event.target.value })}
+          placeholder="Search symbol, strategy, mistakes"
+          value={filters.search}
+        />
+      </label>
+      <Input type="date" value={filters.dateFrom} onChange={(value) => setFilters({ ...filters, dateFrom: value })} />
+      <Input type="date" value={filters.dateTo} onChange={(value) => setFilters({ ...filters, dateTo: value })} />
+      <Select value={filters.symbol} onChange={(value) => setFilters({ ...filters, symbol: value })}>
+        <option value="">All symbols</option>
+        {symbols.map((symbol) => <option key={symbol}>{symbol}</option>)}
+      </Select>
+      <Select value={filters.timeframe} onChange={(value) => setFilters({ ...filters, timeframe: value })}>
+        <option value="">All timeframes</option>
+        {timeframes.map((timeframe) => <option key={timeframe}>{timeframe}</option>)}
+      </Select>
+      <Select value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })}>
+        <option value="">All status</option>
+        {statuses.map((status) => <option key={status}>{status}</option>)}
+      </Select>
+      <Select value={filters.strategy} onChange={(value) => setFilters({ ...filters, strategy: value })}>
+        <option value="">All strategies</option>
+        {strategies.map((strategy) => <option key={strategy}>{strategy}</option>)}
+      </Select>
+      <Select value={filters.qualityGrade} onChange={(value) => setFilters({ ...filters, qualityGrade: value })}>
+        <option value="">All grades</option>
+        {qualityGrades.map((grade) => <option key={grade}>{grade}</option>)}
+      </Select>
+      <Select value={filters.ruleFollowed} onChange={(value) => setFilters({ ...filters, ruleFollowed: value })}>
+        <option value="">All rule status</option>
+        {ruleStatuses.map((rule) => <option key={rule}>{rule}</option>)}
+      </Select>
+      <Select value={presetId} onChange={applyPreset}>
+        <option value="">Saved filter presets</option>
+        {filterPresets.map((preset) => (
+          <option key={preset.id} value={preset.id}>{preset.presetName}</option>
+        ))}
+      </Select>
+      <Select value={sort} onChange={(value) => setSort(value as TradeSort)}>
+        <option value="newest">Sort by newest</option>
+        <option value="oldest">Sort by oldest</option>
+        <option value="highest-profit">Sort by highest profit</option>
+        <option value="biggest-loss">Sort by biggest loss</option>
+      </Select>
+    </div>
+  );
+}
+
+function TradeMobileCard({ onDelete, trade }: { onDelete: () => void; trade: Trade }) {
+  return (
+    <article className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Trade #{trade.tradeNumber}</p>
+          <h3 className="mt-1 break-words text-lg font-semibold">{trade.symbol} {trade.direction}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{trade.timeframe} / {trade.date} {trade.time}</p>
+        </div>
+        <StatusBadge status={trade.status} />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Metric label="Net P/L" value={formatMoney(trade.netProfitLoss)} tone={trade.netProfitLoss >= 0 ? "text-profit" : "text-loss"} />
+        <Metric label="Ending Balance" value={formatMoney(trade.endingBalance)} />
+        <Metric label="Quality" value={`${trade.tradeQualityScore} / ${trade.tradeQualityGrade}`} />
+        <Metric label="Rule" value={trade.ruleFollowed} />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {trade.mistakeTags.slice(0, 3).map((tag) => (
+          <span className="rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground" key={tag}>{tag}</span>
+        ))}
+        {trade.mistakeTags.length > 3 ? (
+          <span className="rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground">+{trade.mistakeTags.length - 3}</span>
+        ) : null}
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <Button asChild variant="secondary"><Link href={`/journal/${trade.id}`}>View</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/journal/${trade.id}/edit`}>Edit</Link></Button>
+        <Button onClick={onDelete} type="button" variant="ghost">Delete</Button>
+      </div>
+    </article>
+  );
+}
+
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="px-3 py-3 font-medium">{children}</th>;
 }
@@ -275,11 +413,11 @@ function Td({ children, className }: { children: React.ReactNode; className?: st
 }
 
 function Input({ value, onChange, type = "text" }: { value: string; onChange: (value: string) => void; type?: string }) {
-  return <input className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" type={type} value={value} onChange={(event) => onChange(event.target.value)} />;
+  return <input className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" type={type} value={value} onChange={(event) => onChange(event.target.value)} />;
 }
 
 function Select({ value, onChange, children }: { value: string; onChange: (value: string) => void; children: React.ReactNode }) {
-  return <select className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" value={value} onChange={(event) => onChange(event.target.value)}>{children}</select>;
+  return <select className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{children}</select>;
 }
 
 function IconLink({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {

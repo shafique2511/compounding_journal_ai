@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteStorageFile, uploadTradeScreenshot } from "@/lib/supabase";
 import {
@@ -89,6 +90,8 @@ export function TradeForm({ trade }: TradeFormProps) {
   const [strategySearch, setStrategySearch] = useState("");
   const [pendingValues, setPendingValues] = useState<TradeFormInput | null>(null);
   const selectedStrategyParam = searchParams.get("strategy") ?? "";
+  useEscapeToClose(showChecklistWarning, () => setShowChecklistWarning(false));
+  useEscapeToClose(showTemplateLibrary, () => setShowTemplateLibrary(false));
   const autoStartingBalance = useMemo(
     () => trade?.startingBalance ?? getNextStartingBalance(trades, settings.initialBalance),
     [settings.initialBalance, trade?.startingBalance, trades],
@@ -266,7 +269,7 @@ export function TradeForm({ trade }: TradeFormProps) {
   }
 
   return (
-    <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
+    <form className="space-y-5 pb-24 md:pb-0" onSubmit={form.handleSubmit(handleSubmit)}>
       <FormHeader title={trade ? "Edit Trade" : "Add Trade"} />
       {error ? <p className="rounded-md border border-loss/30 bg-loss/10 p-3 text-sm text-loss">{error}</p> : null}
       {message ? <p className="rounded-md border bg-card p-3 text-sm text-muted-foreground">{message}</p> : null}
@@ -278,6 +281,20 @@ export function TradeForm({ trade }: TradeFormProps) {
           </ul>
         </div>
       ) : null}
+
+      <section className="grid gap-3 rounded-lg border bg-card p-4 shadow-sm min-[375px]:grid-cols-2 lg:grid-cols-4">
+        <ReadOnlyMetric label="Net Profit/Loss" value={calculations.netProfitLoss} />
+        <ReadOnlyMetric label="Ending Balance" value={calculations.endingBalance} />
+        <ReadOnlyMetric label="Growth %" value={calculations.growthPercent} suffix="%" />
+        <ReadOnlyMetric label="Risk Reward Ratio" value={calculations.riskRewardRatio} />
+        <ReadOnlyMetric label="R Multiple" value={calculations.rMultiple} />
+        <ReadOnlyMetric label="Checklist Score" value={calculations.checklistScore} suffix="%" />
+        <ReadOnlyMetric label="Trade Quality Score" value={calculations.tradeQualityScore} />
+        <div className="rounded-md border bg-background p-3">
+          <p className="text-xs text-muted-foreground">Trade Quality Grade</p>
+          <p className="mt-1 text-xl font-semibold text-analytics">{calculations.tradeQualityGrade}</p>
+        </div>
+      </section>
 
       <Section title="1. Trade Info">
         <Input label="Symbol" {...form.register("symbol")} />
@@ -321,11 +338,11 @@ export function TradeForm({ trade }: TradeFormProps) {
           value={values.strategyName ?? ""}
         />
         <Input label="Setup Type" {...form.register("setupType")} />
-        <Button onClick={() => setShowTemplateLibrary(true)} type="button" variant="secondary">
+        <Button className="h-11 w-full" onClick={() => setShowTemplateLibrary(true)} type="button" variant="secondary">
           <BookOpen aria-hidden="true" className="size-4" />
           Browse Strategy Templates
         </Button>
-        <Button onClick={() => router.push("/strategies/add")} type="button" variant="secondary">
+        <Button className="h-11 w-full" onClick={() => router.push("/strategies/add")} type="button" variant="secondary">
           <Plus aria-hidden="true" className="size-4" />
           Add New Strategy
         </Button>
@@ -353,8 +370,8 @@ export function TradeForm({ trade }: TradeFormProps) {
         <ReadOnlyMetric label="R Multiple" value={calculations.rMultiple} />
       </Section>
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="text-lg font-semibold tracking-tight">4. Trade Plan Checklist</h2>
+      <details className="rounded-lg border bg-card p-5 shadow-sm" open>
+        <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">4. Trade Plan Checklist</summary>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {checklistFields.map((field) => (
             <label className="flex items-center gap-2 rounded-md border bg-background p-3 text-sm" key={field.name}>
@@ -372,7 +389,7 @@ export function TradeForm({ trade }: TradeFormProps) {
             </p>
           </div>
         </div>
-      </section>
+      </details>
 
       <Section title="5. Rule Discipline">
         <Select label="Rule Followed" {...form.register("ruleFollowed")}>
@@ -381,8 +398,8 @@ export function TradeForm({ trade }: TradeFormProps) {
         <Textarea label="Rule Broken Notes" {...form.register("ruleBrokenNotes")} />
       </Section>
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="text-lg font-semibold tracking-tight">6. Mistake Tags</h2>
+      <details className="rounded-lg border bg-card p-5 shadow-sm" open>
+        <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">6. Mistake Tags</summary>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {mistakeTagOptions.map((tag) => (
             <label className="flex items-center gap-2 rounded-md border bg-background p-3 text-sm" key={tag}>
@@ -391,10 +408,10 @@ export function TradeForm({ trade }: TradeFormProps) {
             </label>
           ))}
         </div>
-      </section>
+      </details>
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="text-lg font-semibold tracking-tight">7. Psychology</h2>
+      <details className="rounded-lg border bg-card p-5 shadow-sm" open>
+        <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">7. Psychology</summary>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Input label="Emotion Before" {...form.register("emotionBefore")} />
           <Input label="Emotion After" {...form.register("emotionAfter")} />
@@ -405,10 +422,10 @@ export function TradeForm({ trade }: TradeFormProps) {
           <Textarea label="Notes" {...form.register("notes")} />
           <Textarea label="Review Notes" {...form.register("reviewNotes")} />
         </div>
-      </section>
+      </details>
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="text-lg font-semibold tracking-tight">8. Screenshots</h2>
+      <details className="rounded-lg border bg-card p-5 shadow-sm" open>
+        <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">8. Screenshots</summary>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <ScreenshotField
             label="Screenshot Before Entry"
@@ -423,7 +440,7 @@ export function TradeForm({ trade }: TradeFormProps) {
             url={values.afterScreenshotUrl}
           />
         </div>
-      </section>
+      </details>
 
       <div className="grid gap-3 rounded-lg border bg-card p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
         <ReadOnlyMetric label="Trade Quality Score" value={calculations.tradeQualityScore} />
@@ -433,7 +450,17 @@ export function TradeForm({ trade }: TradeFormProps) {
         </div>
       </div>
 
-      <div className="flex justify-end gap-3">
+      <div className="hidden justify-end gap-3 md:flex">
+        <Button onClick={() => router.push("/journal")} type="button" variant="secondary">
+          Cancel
+        </Button>
+        <Button type="submit">
+          <Save aria-hidden="true" className="size-4" />
+          Save Trade
+        </Button>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-16 z-40 grid grid-cols-2 gap-2 border-t bg-card/95 p-3 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
         <Button onClick={() => router.push("/journal")} type="button" variant="secondary">
           Cancel
         </Button>
@@ -445,12 +472,12 @@ export function TradeForm({ trade }: TradeFormProps) {
 
       {showChecklistWarning ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-lg border bg-card p-5 shadow-lg">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-card p-5 shadow-lg">
             <h3 className="text-lg font-semibold">Checklist warning</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Checklist score is below 80. The plan is marked as a warning, but you can save anyway.
             </p>
-            <div className="mt-5 flex justify-end gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <Button onClick={() => setShowChecklistWarning(false)} type="button" variant="secondary">
                 Review Checklist
               </Button>
@@ -472,7 +499,8 @@ export function TradeForm({ trade }: TradeFormProps) {
 
       {showTemplateLibrary ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
-          <div className="mx-auto w-full max-w-6xl">
+          <button aria-label="Close strategy templates" className="fixed inset-0" onClick={() => setShowTemplateLibrary(false)} type="button" />
+          <div className="relative mx-auto w-full max-w-6xl">
             <div className="mb-3 flex justify-end">
               <Button onClick={() => setShowTemplateLibrary(false)} type="button" variant="secondary">
                 Cancel
@@ -603,10 +631,10 @@ function FormHeader({ title }: { title: string }) {
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+    <details className="rounded-lg border bg-card p-5 shadow-sm" open>
+      <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">{title}</summary>
       <div className="mt-4 grid gap-4 md:grid-cols-3">{children}</div>
-    </section>
+    </details>
   );
 }
 
@@ -614,7 +642,7 @@ function Input({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
   return (
     <label className="space-y-2">
       <span className="text-sm font-medium">{label}</span>
-      <input className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...props} />
+      <input className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" {...props} />
     </label>
   );
 }
@@ -623,7 +651,7 @@ function Select({ label, ...props }: React.SelectHTMLAttributes<HTMLSelectElemen
   return (
     <label className="space-y-2">
       <span className="text-sm font-medium">{label}</span>
-      <select className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...props} />
+      <select className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" {...props} />
     </label>
   );
 }
@@ -632,7 +660,7 @@ function Textarea({ label, ...props }: React.TextareaHTMLAttributes<HTMLTextArea
   return (
     <label className="space-y-2">
       <span className="text-sm font-medium">{label}</span>
-      <textarea className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...props} />
+      <textarea className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-24 md:text-sm" {...props} />
     </label>
   );
 }

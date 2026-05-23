@@ -5,6 +5,7 @@ import { Edit, Eye, Plus, Power, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteUserDocument, saveStrategy } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
@@ -24,6 +25,7 @@ export function StrategyPlaybook() {
   const { removeStrategy, strategies, trades, upsertStrategy } = useJournalStore();
   const [strategyToDelete, setStrategyToDelete] = useState<Strategy | null>(null);
   const [message, setMessage] = useState("");
+  useEscapeToClose(Boolean(strategyToDelete), () => setStrategyToDelete(null));
 
   async function handleToggleStrategy(strategy: Strategy) {
     const nextStrategy = { ...strategy, isActive: !strategy.isActive, updatedAt: getCurrentTimestamp() };
@@ -98,12 +100,12 @@ export function StrategyPlaybook() {
 
       {strategyToDelete ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-lg border bg-card p-5 shadow-lg">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-card p-5 shadow-lg">
             <h3 className="text-lg font-semibold">Delete strategy?</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Existing trades keep their saved strategy name and will not be deleted.
             </p>
-            <div className="mt-5 flex justify-end gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <Button onClick={() => setStrategyToDelete(null)} type="button" variant="secondary">
                 Cancel
               </Button>

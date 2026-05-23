@@ -36,7 +36,9 @@ import {
   calculateWeeklyLossUsed,
   calculateWinRate,
 } from "@/lib/calculations";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { listUserDocuments } from "@/lib/supabase";
 import { applyFilterPresetToDashboardFilters } from "@/lib/filters/filter-presets";
 import { useJournalStore } from "@/store";
@@ -77,6 +79,8 @@ export function DashboardPage() {
   const { user } = useAuth();
   const { filterPresets, settings, setFilterPresets, trades } = useJournalStore();
   const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  useEscapeToClose(showMobileFilters, () => setShowMobileFilters(false));
 
   useEffect(() => {
     if (!user) {
@@ -98,6 +102,10 @@ export function DashboardPage() {
       filters,
       filterPresets.find((preset) => preset.id === nextPresetId),
     ));
+  }
+
+  function clearFilters() {
+    setFilters(defaultFilters);
   }
 
   const filteredTrades = useMemo(
@@ -168,51 +176,28 @@ export function DashboardPage() {
       </div>
 
       <div className="rounded-lg border bg-card p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
-          <Select value={filters.range} onChange={(value) => setFilters({ ...filters, range: value as DashboardRange })}>
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
-            <option value="custom">Custom Date Range</option>
-          </Select>
-          <Input type="date" value={filters.customFrom} onChange={(value) => setFilters({ ...filters, customFrom: value, range: "custom" })} />
-          <Input type="date" value={filters.customTo} onChange={(value) => setFilters({ ...filters, customTo: value, range: "custom" })} />
-          <Select value={filters.symbol} onChange={(value) => setFilters({ ...filters, symbol: value })}>
-            <option value="">Symbol</option>
-            {symbols.map((symbol) => <option key={symbol}>{symbol}</option>)}
-          </Select>
-          <Select value={filters.timeframe} onChange={(value) => setFilters({ ...filters, timeframe: value })}>
-            <option value="">Timeframe</option>
-            {timeframes.map((timeframe) => <option key={timeframe}>{timeframe}</option>)}
-          </Select>
-          <Select value={filters.strategy} onChange={(value) => setFilters({ ...filters, strategy: value })}>
-            <option value="">Strategy</option>
-            {strategies.map((strategy) => <option key={strategy}>{strategy}</option>)}
-          </Select>
-          <Select value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })}>
-            <option value="">Status</option>
-            {statuses.map((status) => <option key={status}>{status}</option>)}
-          </Select>
-          <Select value={filters.qualityGrade} onChange={(value) => setFilters({ ...filters, qualityGrade: value })}>
-            <option value="">Quality Grade</option>
-            {grades.map((grade) => <option key={grade}>{grade}</option>)}
-          </Select>
-          <Select value={filters.ruleFollowed} onChange={(value) => setFilters({ ...filters, ruleFollowed: value })}>
-            <option value="">Rule Followed</option>
-            {ruleStatuses.map((rule) => <option key={rule}>{rule}</option>)}
-          </Select>
-          <Select value={filters.preset} onChange={applyPreset}>
-            <option value="">Saved Filter Presets</option>
-            {filterPresets.map((preset) => (
-              <option key={preset.id} value={preset.id}>{preset.presetName}</option>
-            ))}
-          </Select>
+        <div className="flex flex-col gap-3 md:hidden">
+          <Button onClick={() => setShowMobileFilters(true)} type="button" variant="secondary">Open Filters</Button>
+          <ActiveFilterChips filters={filters} onClear={clearFilters} />
+        </div>
+        <div className="hidden md:block">
+          <FilterControls
+            applyPreset={applyPreset}
+            filterPresets={filterPresets}
+            filters={filters}
+            grades={grades}
+            onClear={clearFilters}
+            setFilters={setFilters}
+            statuses={statuses}
+            strategies={strategies}
+            symbols={symbols}
+            timeframes={timeframes}
+            ruleStatuses={ruleStatuses}
+          />
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid gap-3 min-[375px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {kpis.map((kpi) => (
           <KpiCard key={kpi.label} {...kpi} />
         ))}
@@ -234,7 +219,123 @@ export function DashboardPage() {
         <ChartCard title="Mistake Tag Chart" data={chartData.mistakes} type="bar" dataKey="count" tone="loss" />
         <ChartCard title="Quality Grade Chart" data={chartData.qualityGrades} type="bar" dataKey="count" tone="analytics" />
       </div>
+
+      {showMobileFilters ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm md:hidden">
+          <button aria-label="Close filters" className="fixed inset-0" onClick={() => setShowMobileFilters(false)} type="button" />
+          <div className="relative mx-auto max-h-[calc(100vh-2rem)] max-w-md overflow-y-auto rounded-lg border bg-card p-4 shadow-lg">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold">Dashboard Filters</h3>
+              <Button onClick={() => setShowMobileFilters(false)} type="button" variant="secondary">Done</Button>
+            </div>
+            <FilterControls
+              applyPreset={applyPreset}
+              filterPresets={filterPresets}
+              filters={filters}
+              grades={grades}
+              onClear={clearFilters}
+              setFilters={setFilters}
+              statuses={statuses}
+              strategies={strategies}
+              symbols={symbols}
+              timeframes={timeframes}
+              ruleStatuses={ruleStatuses}
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function FilterControls({
+  applyPreset,
+  filterPresets,
+  filters,
+  grades,
+  onClear,
+  ruleStatuses,
+  setFilters,
+  statuses,
+  strategies,
+  symbols,
+  timeframes,
+}: {
+  applyPreset: (presetId: string) => void;
+  filterPresets: FilterPreset[];
+  filters: DashboardFilters;
+  grades: string[];
+  onClear: () => void;
+  ruleStatuses: string[];
+  setFilters: (filters: DashboardFilters) => void;
+  statuses: string[];
+  strategies: string[];
+  symbols: string[];
+  timeframes: string[];
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
+      <Select value={filters.range} onChange={(value) => setFilters({ ...filters, range: value as DashboardRange })}>
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+        <option value="year">This Year</option>
+        <option value="custom">Custom Date Range</option>
+      </Select>
+      <Input type="date" value={filters.customFrom} onChange={(value) => setFilters({ ...filters, customFrom: value, range: "custom" })} />
+      <Input type="date" value={filters.customTo} onChange={(value) => setFilters({ ...filters, customTo: value, range: "custom" })} />
+      <Select value={filters.symbol} onChange={(value) => setFilters({ ...filters, symbol: value })}>
+        <option value="">Symbol</option>
+        {symbols.map((symbol) => <option key={symbol}>{symbol}</option>)}
+      </Select>
+      <Select value={filters.timeframe} onChange={(value) => setFilters({ ...filters, timeframe: value })}>
+        <option value="">Timeframe</option>
+        {timeframes.map((timeframe) => <option key={timeframe}>{timeframe}</option>)}
+      </Select>
+      <Select value={filters.strategy} onChange={(value) => setFilters({ ...filters, strategy: value })}>
+        <option value="">Strategy</option>
+        {strategies.map((strategy) => <option key={strategy}>{strategy}</option>)}
+      </Select>
+      <Select value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })}>
+        <option value="">Status</option>
+        {statuses.map((status) => <option key={status}>{status}</option>)}
+      </Select>
+      <Select value={filters.qualityGrade} onChange={(value) => setFilters({ ...filters, qualityGrade: value })}>
+        <option value="">Quality Grade</option>
+        {grades.map((grade) => <option key={grade}>{grade}</option>)}
+      </Select>
+      <Select value={filters.ruleFollowed} onChange={(value) => setFilters({ ...filters, ruleFollowed: value })}>
+        <option value="">Rule Followed</option>
+        {ruleStatuses.map((rule) => <option key={rule}>{rule}</option>)}
+      </Select>
+      <Select value={filters.preset} onChange={applyPreset}>
+        <option value="">Saved Filter Presets</option>
+        {filterPresets.map((preset) => (
+          <option key={preset.id} value={preset.id}>{preset.presetName}</option>
+        ))}
+      </Select>
+      <Button onClick={onClear} type="button" variant="secondary">Clear Filters</Button>
+    </div>
+  );
+}
+
+function ActiveFilterChips({ filters, onClear }: { filters: DashboardFilters; onClear: () => void }) {
+  const chips = Object.entries(filters)
+    .filter(([key, value]) => key !== "preset" && Boolean(value) && value !== "all")
+    .map(([key, value]) => `${labelize(key)}: ${value}`);
+
+  if (chips.length === 0) {
+    return <p className="text-sm text-muted-foreground">No active filters.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {chips.map((chip) => (
+        <span className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground" key={chip}>{chip}</span>
+      ))}
+      <Button onClick={onClear} type="button" variant="ghost">Clear</Button>
+    </div>
   );
 }
 
@@ -254,9 +355,9 @@ function ChartCard({
   const color = tone === "loss" ? "#ef4444" : tone === "withdrawal" ? "#f97316" : "#8b5cf6";
 
   return (
-    <div className="rounded-lg border bg-card p-5 shadow-sm">
+    <div className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
       <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-      <div className="mt-4 h-72">
+      <div className="mt-4 h-60 min-[375px]:h-72 md:h-80 xl:h-96">
         {data.length === 0 ? (
           <EmptyChart />
         ) : (
@@ -264,7 +365,7 @@ function ChartCard({
             {type === "bar" ? (
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" interval="preserveStartEnd" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />
@@ -272,7 +373,7 @@ function ChartCard({
             ) : type === "line" ? (
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" interval="preserveStartEnd" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Line dataKey={dataKey} dot={data.length === 1} stroke={color} strokeWidth={2} type="monotone" />
@@ -280,7 +381,7 @@ function ChartCard({
             ) : (
               <AreaChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" interval="preserveStartEnd" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Area dataKey={dataKey} fill={color} fillOpacity={0.18} stroke={color} strokeWidth={2} type="monotone" />
@@ -295,9 +396,9 @@ function ChartCard({
 
 function PieChartCard({ data, title }: { data: { name: string; value: number }[]; title: string }) {
   return (
-    <div className="rounded-lg border bg-card p-5 shadow-sm">
+    <div className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
       <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-      <div className="mt-4 h-72">
+      <div className="mt-4 h-60 min-[375px]:h-72 md:h-80 xl:h-96">
         {data.every((item) => item.value === 0) ? (
           <EmptyChart />
         ) : (
@@ -321,7 +422,7 @@ function KpiCard({ label, tone, value }: { label: string; tone: string; value: s
   return (
     <div className="rounded-lg border bg-card p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className={cn("mt-2 text-xl font-semibold", toneClass(tone))}>{value}</p>
+      <p className={cn("mt-2 break-words text-lg font-semibold min-[375px]:text-xl", toneClass(tone))}>{value}</p>
     </div>
   );
 }
@@ -335,11 +436,11 @@ function EmptyChart() {
 }
 
 function Input({ value, onChange, type = "text" }: { value: string; onChange: (value: string) => void; type?: string }) {
-  return <input className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" type={type} value={value} onChange={(event) => onChange(event.target.value)} />;
+  return <input className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" type={type} value={value} onChange={(event) => onChange(event.target.value)} />;
 }
 
 function Select({ children, value, onChange }: { children: React.ReactNode; value: string; onChange: (value: string) => void }) {
-  return <select className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" value={value} onChange={(event) => onChange(event.target.value)}>{children}</select>;
+  return <select className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" value={value} onChange={(event) => onChange(event.target.value)}>{children}</select>;
 }
 
 function buildChartData(trades: Trade[]) {
@@ -492,6 +593,10 @@ function formatCurrentStreak(winStreak: number, lossStreak: number) {
 
 function unique(values: string[]) {
   return Array.from(new Set(values)).sort();
+}
+
+function labelize(value: string) {
+  return value.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function startOfDay(date: Date) {

@@ -5,6 +5,7 @@ import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { parseBackup } from "@/lib/backup";
 import {
@@ -61,6 +62,7 @@ export function ExportBackupPage() {
   const [pendingBackup, setPendingBackup] = useState<Awaited<ReturnType<typeof parseBackup>> | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState("");
+  useEscapeToClose(Boolean(pendingBackup) && !isWorking, () => setPendingBackup(null));
 
   useEffect(() => {
     if (!user) {
@@ -272,18 +274,18 @@ export function ExportBackupPage() {
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h3 className="text-lg font-semibold tracking-tight">Exports</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <ExportButton label="Export All Trades CSV" onClick={exportAllTrades} />
-          <ExportButton label="Export Filtered Trades CSV" onClick={exportFilteredTrades} />
-          <ExportButton label="Export Dashboard Summary CSV" onClick={exportDashboardSummary} />
-          <ExportButton label="Export AI History CSV" onClick={exportAiHistoryCsv} />
-          <ExportButton label="Export AI History JSON" onClick={exportAiHistoryJson} icon={FileJson} />
-          <ExportButton label="Export Strategy Playbook CSV" onClick={exportStrategyPlaybook} />
-          <ExportButton label="Export Review Report CSV" onClick={exportReviewReport} />
-          <ExportButton label="Export Mistake Analysis CSV" onClick={exportMistakeAnalysis} />
-          <ExportButton label="Export Filter Presets JSON" onClick={exportFilterPresets} icon={FileJson} />
-          <ExportButton label="Backup All User Data JSON" onClick={backupAllData} icon={FileJson} />
-          <ExportButton label="Upload Backup to Supabase" onClick={uploadBackupToSupabase} icon={Upload} />
-          <ExportButton label="Refresh Supabase Data" onClick={refreshFromSupabase} icon={RotateCcw} />
+          <ExportButton description="Download every saved trade as a CSV file." label="Export All Trades CSV" onClick={exportAllTrades} />
+          <ExportButton description="Download only trades matching the filters above." label="Export Filtered Trades CSV" onClick={exportFilteredTrades} />
+          <ExportButton description="Download key dashboard metrics for reporting." label="Export Dashboard Summary CSV" onClick={exportDashboardSummary} />
+          <ExportButton description="Download AI coaching history as CSV." label="Export AI History CSV" onClick={exportAiHistoryCsv} />
+          <ExportButton description="Download AI coaching history as JSON." label="Export AI History JSON" onClick={exportAiHistoryJson} icon={FileJson} />
+          <ExportButton description="Download strategy playbook rules." label="Export Strategy Playbook CSV" onClick={exportStrategyPlaybook} />
+          <ExportButton description="Download review status and review notes." label="Export Review Report CSV" onClick={exportReviewReport} />
+          <ExportButton description="Download mistake tag performance summary." label="Export Mistake Analysis CSV" onClick={exportMistakeAnalysis} />
+          <ExportButton description="Download saved filter presets." label="Export Filter Presets JSON" onClick={exportFilterPresets} icon={FileJson} />
+          <ExportButton description="Download settings, trades, AI history, strategies, and presets." label="Backup All User Data JSON" onClick={backupAllData} icon={FileJson} />
+          <ExportButton description="Store a private backup in Supabase Storage." label="Upload Backup to Supabase" onClick={uploadBackupToSupabase} icon={Upload} />
+          <ExportButton description="Reload export data from Supabase." label="Refresh Supabase Data" onClick={refreshFromSupabase} icon={RotateCcw} />
         </div>
       </section>
 
@@ -292,8 +294,8 @@ export function ExportBackupPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Restore validates the backup file first. Confirm restore only after the validation message appears.
         </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button onClick={() => fileInputRef.current?.click()} type="button" variant="secondary">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Button className="h-11 w-full justify-start" onClick={() => fileInputRef.current?.click()} type="button" variant="secondary">
             <Upload aria-hidden="true" className="size-4" />
             Choose Backup JSON
           </Button>
@@ -304,9 +306,9 @@ export function ExportBackupPage() {
             ref={fileInputRef}
             type="file"
           />
-          <Button disabled={!pendingBackup || isWorking} onClick={() => void confirmRestore()} type="button">
+          <Button className="h-11 w-full justify-start" disabled={!pendingBackup || isWorking} onClick={() => void confirmRestore()} type="button">
             <RotateCcw aria-hidden="true" className="size-4" />
-            Confirm Restore
+            {isWorking ? "Working..." : "Confirm Restore"}
           </Button>
         </div>
         {pendingBackup ? (
@@ -317,6 +319,24 @@ export function ExportBackupPage() {
       </section>
 
       {message ? <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground shadow-sm">{message}</p> : null}
+
+      {pendingBackup ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border bg-card p-4 shadow-lg">
+            <h3 className="text-lg font-semibold">Confirm restore</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This validated backup will replace your current Supabase journal data. Existing balances and quality scores will be recalculated.
+            </p>
+            <div className="mt-4 rounded-md border bg-background p-3 text-sm text-muted-foreground">
+              {pendingBackup.trades.length} trades, {pendingBackup.aiAnalyses.length} AI analyses, {pendingBackup.strategies.length} strategies, {pendingBackup.filterPresets.length} presets.
+            </div>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <Button onClick={() => setPendingBackup(null)} type="button" variant="secondary">Cancel</Button>
+              <Button disabled={isWorking} onClick={() => void confirmRestore()} type="button">{isWorking ? "Restoring..." : "Restore Data"}</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -325,16 +345,28 @@ function ExportButton({
   icon: Icon = Download,
   label,
   onClick,
+  description,
 }: {
+  description: string;
   icon?: typeof Download;
   label: string;
   onClick: () => void;
 }) {
   return (
-    <Button className="justify-start" onClick={onClick} type="button" variant="secondary">
-      <Icon aria-hidden="true" className="size-4" />
-      {label}
-    </Button>
+    <div className="rounded-lg border bg-background p-4">
+      <div className="flex items-start gap-3">
+        <div className="grid size-10 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground">
+          <Icon aria-hidden="true" className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <h4 className="font-medium">{label}</h4>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <Button className="mt-4 h-11 w-full justify-center" onClick={onClick} type="button" variant="secondary">
+        {label}
+      </Button>
+    </div>
   );
 }
 
@@ -351,7 +383,7 @@ function Input({
 }) {
   return (
     <input
-      className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm"
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
       type={type}
@@ -371,7 +403,7 @@ function Select({
 }) {
   return (
     <select
-      className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm"
       onChange={(event) => onChange(event.target.value)}
       value={value}
     >

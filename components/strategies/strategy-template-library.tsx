@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { saveStrategy } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
@@ -70,6 +71,7 @@ export function StrategyTemplateLibrary({
     () => recommendTemplates(helperAnswers),
     [helperAnswers],
   );
+  useEscapeToClose(Boolean(selectedTemplate), () => setSelectedTemplate(null));
 
   async function addTemplateToPlaybook(template: StrategyTemplate) {
     const existing = strategies.find(
@@ -145,11 +147,11 @@ export function StrategyTemplateLibrary({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2 md:flex-wrap md:overflow-visible">
         {strategyTemplateFilterChips.map((chip) => (
           <button
             className={cn(
-              "rounded-full border px-3 py-1.5 text-sm transition",
+              "shrink-0 rounded-full border px-3 py-2 text-sm transition md:py-1.5",
               activeFilter === chip
                 ? "border-primary bg-primary text-primary-foreground"
                 : "bg-background text-muted-foreground hover:text-foreground",
@@ -170,7 +172,7 @@ export function StrategyTemplateLibrary({
         suggestions={suggestions}
       />
 
-      <div className={cn("mt-5 grid gap-4", compact ? "md:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-3")}>
+      <div className={cn("mt-5 grid gap-4", compact ? "md:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3")}>
         {filteredTemplates.map((template) => (
           <TemplateCard
             alreadyAdded={strategies.some((strategy) => normalize(strategy.strategyName) === normalize(template.strategyName))}
@@ -254,9 +256,9 @@ function TemplateCard({
         <p><span className="text-foreground">Market:</span> {template.marketType}</p>
         <p><span className="text-foreground">Timeframe:</span> {template.timeframe}</p>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button onClick={onView} type="button" variant="secondary">View Template</Button>
-        <Button onClick={onAdd} type="button" variant={alreadyAdded ? "ghost" : "default"}>
+      <div className="mt-4 grid gap-2 min-[375px]:grid-cols-2 md:flex md:flex-wrap">
+        <Button className="h-11 w-full md:w-auto" onClick={onView} type="button" variant="secondary">View Template</Button>
+        <Button className="h-11 w-full md:w-auto" onClick={onAdd} type="button" variant={alreadyAdded ? "ghost" : "default"}>
           {alreadyAdded ? <Check aria-hidden="true" className="size-4" /> : null}
           {alreadyAdded ? "In Playbook" : "Add to My Playbook"}
         </Button>
@@ -281,8 +283,9 @@ function TemplateDetailModal({
   template: StrategyTemplate;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border bg-card p-5 shadow-lg">
+    <div className="fixed inset-0 z-50 bg-background/80 p-0 backdrop-blur-sm md:grid md:place-items-center md:p-4">
+      <button aria-label="Close strategy template detail" className="hidden md:fixed md:inset-0 md:block" onClick={onClose} type="button" />
+      <div className="relative h-full w-full overflow-y-auto border bg-card p-4 shadow-lg md:max-h-[90vh] md:max-w-4xl md:rounded-lg md:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{template.category}</p>
@@ -294,7 +297,7 @@ function TemplateDetailModal({
           <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
         </div>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
           <RuleBlock label="Entry Rules" value={template.entryRules} />
           <RuleBlock label="Exit Rules" value={template.exitRules} />
           <RuleBlock label="Stop Loss Rules" value={template.stopLossRules} />
@@ -305,10 +308,10 @@ function TemplateDetailModal({
           <ListBlock label="Common Mistakes" values={template.commonMistakes} />
         </div>
 
-        <div className="mt-5 flex flex-wrap justify-end gap-3">
-          <Button onClick={onAdd} type="button" variant="secondary">Add to My Playbook</Button>
-          <Button onClick={onEdit} type="button" variant="secondary">Edit Before Saving</Button>
-          <Button onClick={onUse} type="button">{showUseInTrade ? "Use in Add Trade" : "Use This Template"}</Button>
+        <div className="mt-5 grid gap-3 pb-4 md:flex md:flex-wrap md:justify-end md:pb-0">
+          <Button className="h-11 w-full md:w-auto" onClick={onAdd} type="button" variant="secondary">Add to My Playbook</Button>
+          <Button className="h-11 w-full md:w-auto" onClick={onEdit} type="button" variant="secondary">Edit Before Saving</Button>
+          <Button className="h-11 w-full md:w-auto" onClick={onUse} type="button">{showUseInTrade ? "Use in Add Trade" : "Use This Template"}</Button>
         </div>
       </div>
     </div>
@@ -385,21 +388,21 @@ function HelperSelect({
 
 function RuleBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-background p-4">
-      <h4 className="font-semibold tracking-tight">{label}</h4>
+    <details className="rounded-lg border bg-background p-4" open>
+      <summary className="cursor-pointer list-none font-semibold tracking-tight">{label}</summary>
       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{value}</p>
-    </div>
+    </details>
   );
 }
 
 function ListBlock({ label, values }: { label: string; values: string[] }) {
   return (
-    <div className="rounded-lg border bg-background p-4">
-      <h4 className="font-semibold tracking-tight">{label}</h4>
+    <details className="rounded-lg border bg-background p-4" open>
+      <summary className="cursor-pointer list-none font-semibold tracking-tight">{label}</summary>
       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
         {values.map((value) => <li key={value}>{value}</li>)}
       </ul>
-    </div>
+    </details>
   );
 }
 

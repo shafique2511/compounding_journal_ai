@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useEscapeToClose } from "@/hooks/use-escape-to-close";
 import { useJournalStore } from "@/store";
 import type { Trade } from "@/types";
 import { cn } from "@/lib/utils";
@@ -27,9 +28,11 @@ export function CalendarPage() {
   const trades = useJournalStore((state) => state.trades);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState(() => formatDate(new Date()));
+  const [showMobileSummary, setShowMobileSummary] = useState(false);
   const days = useMemo(() => buildMonthDays(visibleMonth, trades), [trades, visibleMonth]);
   const selectedSummary =
     days.find((day) => day.date === selectedDate) ?? createDaySummary(selectedDate, false, trades);
+  useEscapeToClose(showMobileSummary, () => setShowMobileSummary(false));
 
   function moveMonth(offset: number) {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
@@ -68,7 +71,7 @@ export function CalendarPage() {
             {days.map((day) => (
               <button
                 className={cn(
-                  "min-h-24 rounded-md border p-2 text-left transition-colors md:min-h-32",
+                  "min-h-[74px] rounded-md border p-1.5 text-left transition-colors min-[375px]:min-h-20 min-[375px]:p-2 md:min-h-32",
                   day.isCurrentMonth ? "bg-background" : "bg-muted/30 text-muted-foreground",
                   day.date === selectedDate && "ring-2 ring-primary",
                   day.netProfitLoss > 0 && "border-profit/30 bg-profit/10",
@@ -76,16 +79,19 @@ export function CalendarPage() {
                   day.netProfitLoss === 0 && "border-breakeven/20",
                 )}
                 key={day.date}
-                onClick={() => setSelectedDate(day.date)}
+                onClick={() => {
+                  setSelectedDate(day.date);
+                  setShowMobileSummary(true);
+                }}
                 type="button"
               >
                 <span className="text-sm font-semibold">{day.dayNumber}</span>
-                <div className="mt-3 space-y-1">
-                  <p className={cn("text-xs font-medium", day.netProfitLoss > 0 ? "text-profit" : day.netProfitLoss < 0 ? "text-loss" : "text-breakeven")}>
+                <div className="mt-2 space-y-1 md:mt-3">
+                  <p className={cn("truncate text-[11px] font-medium min-[375px]:text-xs", day.netProfitLoss > 0 ? "text-profit" : day.netProfitLoss < 0 ? "text-loss" : "text-breakeven")}>
                     {money(day.netProfitLoss)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {day.trades.length} {day.trades.length === 1 ? "trade" : "trades"}
+                    {day.trades.length}t
                   </p>
                 </div>
               </button>
@@ -93,19 +99,41 @@ export function CalendarPage() {
           </div>
         </div>
 
-        <DailySummary summary={selectedSummary} />
+        <div className="hidden xl:block">
+          <DailySummary summary={selectedSummary} />
+        </div>
       </div>
+
+      {showMobileSummary ? (
+        <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm xl:hidden">
+          <button
+            aria-label="Close daily summary"
+            className="absolute inset-0"
+            onClick={() => setShowMobileSummary(false)}
+            type="button"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-2xl border bg-card p-4 shadow-lg">
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted" />
+            <DailySummary onClose={() => setShowMobileSummary(false)} summary={selectedSummary} />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function DailySummary({ summary }: { summary: DaySummary }) {
+function DailySummary({ onClose, summary }: { onClose?: () => void; summary: DaySummary }) {
   return (
-    <aside className="rounded-lg border bg-card p-5 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        Daily Summary
-      </p>
-      <h3 className="mt-2 text-xl font-semibold tracking-tight">{summary.date}</h3>
+    <aside className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Daily Summary
+          </p>
+          <h3 className="mt-2 text-xl font-semibold tracking-tight">{summary.date}</h3>
+        </div>
+        {onClose ? <Button onClick={onClose} type="button" variant="secondary">Close</Button> : null}
+      </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
         <Metric label="Total trades" value={summary.trades.length} />
@@ -122,7 +150,7 @@ function DailySummary({ summary }: { summary: DaySummary }) {
         <div className="mt-3 space-y-2">
           {summary.trades.map((trade) => (
             <Link
-              className="block rounded-md border bg-background p-3 text-sm transition-colors hover:bg-accent"
+              className="block rounded-lg border bg-background p-3 text-sm transition-colors hover:bg-accent"
               href={`/journal/${trade.id}`}
               key={trade.id}
             >

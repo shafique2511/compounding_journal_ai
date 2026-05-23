@@ -297,16 +297,16 @@ export function SettingsPanel() {
         <Toggle checked={draft.saveAiAnalysisHistory} label="Save AI analysis history" onChange={(value) => setDraft({ ...draft, saveAiAnalysisHistory: value })} />
       </SettingsSection>
 
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <h3 className="text-lg font-semibold tracking-tight">6. Appearance</h3>
+      <details className="rounded-lg border bg-card p-5 shadow-sm md:p-6" open>
+        <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">6. Appearance</summary>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid gap-2 min-[430px]:grid-cols-3">
             {themeOptions.map((option) => {
               const Icon = option.icon;
               const isSelected = draft.themeMode === option.value;
               return (
                 <button
-                  className={cn("flex h-10 items-center justify-center gap-2 rounded-md border text-sm transition-colors", isSelected ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-accent")}
+                  className={cn("flex h-11 items-center justify-center gap-2 rounded-md border text-sm transition-colors md:h-10", isSelected ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-accent")}
                   key={option.value}
                   onClick={() => {
                     setDraft({ ...draft, themeMode: option.value });
@@ -324,28 +324,28 @@ export function SettingsPanel() {
             <input className={inputClass} onChange={(event) => setDraft({ ...draft, accentColor: event.target.value })} type="color" value={draft.accentColor} />
           </Field>
         </div>
-      </section>
+      </details>
 
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <h3 className="text-lg font-semibold tracking-tight">7. Data</h3>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button onClick={exportTradesCsv} type="button" variant="secondary"><Download className="size-4" />Export to CSV</Button>
-          <Button onClick={exportDashboardCsv} type="button" variant="secondary"><Download className="size-4" />Export Dashboard CSV</Button>
-          <Button onClick={backupJson} type="button" variant="secondary"><Download className="size-4" />Backup JSON</Button>
-          <Button onClick={() => fileInputRef.current?.click()} type="button" variant="secondary"><Upload className="size-4" />Restore JSON</Button>
+      <details className="rounded-lg border bg-card p-5 shadow-sm md:p-6" open>
+        <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">7. Data</summary>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Button className="h-11 w-full justify-start" onClick={exportTradesCsv} type="button" variant="secondary"><Download className="size-4" />Export to CSV</Button>
+          <Button className="h-11 w-full justify-start" onClick={exportDashboardCsv} type="button" variant="secondary"><Download className="size-4" />Export Dashboard CSV</Button>
+          <Button className="h-11 w-full justify-start" onClick={backupJson} type="button" variant="secondary"><Download className="size-4" />Backup JSON</Button>
+          <Button className="h-11 w-full justify-start" onClick={() => fileInputRef.current?.click()} type="button" variant="secondary"><Upload className="size-4" />Restore JSON</Button>
           <input ref={fileInputRef} className="hidden" accept="application/json" onChange={(event) => void restoreJson(event.target.files?.[0] ?? null)} type="file" />
         </div>
-        <div className="mt-5 rounded-lg border bg-background p-4">
+        <div className="mt-5 rounded-lg border border-loss/30 bg-loss/5 p-4">
           <p className="text-sm font-medium">Delete all trades with confirmation</p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <input className={inputClass} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder="Type DELETE" value={deleteConfirm} />
-            <Button onClick={deleteAllTrades} type="button"><Trash2 className="size-4" />Delete All Trades</Button>
+            <Button className="h-11 w-full sm:w-auto" onClick={deleteAllTrades} type="button"><Trash2 className="size-4" />Delete All Trades</Button>
           </div>
         </div>
-      </section>
+      </details>
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-5 shadow-sm sm:flex-row sm:items-center">
-        <Button onClick={() => void handleSave()} type="button">
+        <Button className="h-11 w-full sm:w-auto" onClick={() => void handleSave()} type="button">
           <Save aria-hidden="true" className="size-4" />
           Save Settings
         </Button>
@@ -355,14 +355,14 @@ export function SettingsPanel() {
   );
 }
 
-const inputClass = "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring";
+const inputClass = "h-11 w-full rounded-md border bg-background px-3 text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm";
 
 function SettingsSection({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className="rounded-lg border bg-card p-6 shadow-sm">
-      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+    <details className="rounded-lg border bg-card p-5 shadow-sm md:p-6" open>
+      <summary className="cursor-pointer list-none text-lg font-semibold tracking-tight">{title}</summary>
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
-    </section>
+    </details>
   );
 }
 
@@ -380,7 +380,7 @@ function NumberInput({ label, min, onChange, value }: { label: string; min?: num
 
 function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (value: boolean) => void }) {
   return (
-    <label className="flex h-10 items-center justify-between gap-3 rounded-md border bg-background px-3 text-sm font-medium">
+    <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border bg-background px-3 py-2 text-sm font-medium md:min-h-10">
       {label}
       <input checked={checked} className="size-4" onChange={(event) => onChange(event.target.checked)} type="checkbox" />
     </label>

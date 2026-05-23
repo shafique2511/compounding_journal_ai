@@ -213,7 +213,7 @@ function Input({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
   return (
     <label className="space-y-2">
       <span className="text-sm font-medium">{label}</span>
-      <input className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...props} />
+      <input className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" {...props} />
     </label>
   );
 }
@@ -222,7 +222,7 @@ function Textarea({ label, ...props }: React.TextareaHTMLAttributes<HTMLTextArea
   return (
     <label className="space-y-2">
       <span className="text-sm font-medium">{label}</span>
-      <textarea className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...props} />
+      <textarea className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-24 md:text-sm" {...props} />
     </label>
   );
 }

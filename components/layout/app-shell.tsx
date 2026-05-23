@@ -9,7 +9,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     <div className="min-h-screen bg-background text-foreground">
       <JournalDataSync />
       <Sidebar />
-      <main className="min-h-screen px-4 py-5 pb-24 md:pl-72 md:pr-8 md:py-8">
+      <main className="min-h-screen overflow-x-hidden px-4 py-5 pb-24 md:py-6 md:pl-72 md:pr-6 lg:py-8 lg:pr-8">
         <div className="mx-auto w-full max-w-7xl">
           <header className="mb-6 rounded-lg border bg-card/80 p-4 shadow-sm backdrop-blur md:p-5">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -24,7 +24,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   Track execution, risk, withdrawals, strategy discipline, and AI-assisted review.
                 </p>
               </div>
-              <div className="grid grid-cols-4 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-xs min-[430px]:grid-cols-4">
                 <span className="rounded-md border border-profit/25 bg-profit/10 px-2 py-1 text-profit">
                   Profit
                 </span>
