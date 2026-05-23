@@ -31,6 +31,7 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
   const { user } = useAuth();
   const { upsertStrategy } = useJournalStore();
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [strategyId] = useState(() => strategy?.id ?? crypto.randomUUID());
   const form = useForm<StrategyFormValues>({
     defaultValues: {
@@ -78,7 +79,12 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
     upsertStrategy(nextStrategy);
 
     if (user) {
-      await saveStrategy(user.uid, nextStrategy);
+      try {
+        await saveStrategy(user.uid, nextStrategy);
+      } catch {
+        setMessage("Strategy saved locally. Firestore could not sync it.");
+        return;
+      }
     }
 
     router.push("/strategies");
@@ -125,6 +131,7 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
       </section>
 
       {error ? <p className="rounded-md border border-loss/30 bg-loss/10 p-3 text-sm text-loss">{error}</p> : null}
+      {message ? <p className="rounded-md border bg-card p-3 text-sm text-muted-foreground">{message}</p> : null}
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h3 className="text-lg font-semibold tracking-tight">Strategy Fields</h3>

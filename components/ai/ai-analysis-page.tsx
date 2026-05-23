@@ -69,6 +69,11 @@ export function AiAnalysisPage() {
     setError("");
     setMessage("");
 
+    if (settings.aiProvider !== "openai" && settings.aiProvider !== "gemini") {
+      setError("Select Gemini or ChatGPT / OpenAI in Settings before running AI analysis.");
+      return;
+    }
+
     if (selectedTrades.length === 0) {
       setError("No trades match the selected AI filter.");
       return;
@@ -106,16 +111,20 @@ export function AiAnalysisPage() {
       setMessage(settings.saveAiAnalysisHistory ? "Analysis complete. History saved when Firebase is available." : "Analysis complete.");
 
       if (user && settings.saveAiAnalysisHistory) {
-        await saveAiAnalysis(user.uid, {
-          id: crypto.randomUUID(),
-          provider: settings.aiProvider,
-          model: data.model || settings.aiModel,
-          analysisType: filterValues.filter,
-          dateRange: formatDateRange(filterValues),
-          inputSummary: summary,
-          result,
-          createdAt: getCurrentTimestamp(),
-        } satisfies AiAnalysis);
+        try {
+          await saveAiAnalysis(user.uid, {
+            id: crypto.randomUUID(),
+            provider: settings.aiProvider,
+            model: data.model || settings.aiModel,
+            analysisType: filterValues.filter,
+            dateRange: formatDateRange(filterValues),
+            inputSummary: summary,
+            result,
+            createdAt: getCurrentTimestamp(),
+          } satisfies AiAnalysis);
+        } catch {
+          setMessage("Analysis complete. AI history could not be saved to Firestore.");
+        }
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "AI analysis failed.");
@@ -137,18 +146,22 @@ export function AiAnalysisPage() {
       return;
     }
 
-    await saveAiAnalysis(user.uid, {
-      id: crypto.randomUUID(),
-      provider: settings.aiProvider,
-      model: settings.aiModel,
-      analysisType: filterValues.filter,
-      dateRange: formatDateRange(filterValues),
-      inputSummary: lastSummary,
-      result: analysis,
-      createdAt: getCurrentTimestamp(),
-    } satisfies AiAnalysis);
-    setError("");
-    setMessage("AI analysis saved.");
+    try {
+      await saveAiAnalysis(user.uid, {
+        id: crypto.randomUUID(),
+        provider: settings.aiProvider,
+        model: settings.aiModel,
+        analysisType: filterValues.filter,
+        dateRange: formatDateRange(filterValues),
+        inputSummary: lastSummary,
+        result: analysis,
+        createdAt: getCurrentTimestamp(),
+      } satisfies AiAnalysis);
+      setError("");
+      setMessage("AI analysis saved.");
+    } catch {
+      setError("AI analysis could not be saved. Check Firebase permissions and try again.");
+    }
   }
 
   return (

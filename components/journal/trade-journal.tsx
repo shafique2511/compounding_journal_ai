@@ -85,8 +85,12 @@ export function TradeJournal() {
     setMessage("Trade deleted and balances recalculated.");
 
     if (user) {
-      await deleteUserDocument(user.uid, "trades", tradeToDelete.id);
-      await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.uid, trade)));
+      try {
+        await deleteUserDocument(user.uid, "trades", tradeToDelete.id);
+        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.uid, trade)));
+      } catch {
+        setMessage("Trade deleted locally. Firestore could not sync the change.");
+      }
     }
   }
 

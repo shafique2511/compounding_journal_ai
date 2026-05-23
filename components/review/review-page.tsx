@@ -59,7 +59,11 @@ export function ReviewPage() {
     setMessage(`Review updated for trade #${trade.tradeNumber}.`);
 
     if (user) {
-      await saveTrade(user.uid, nextTrade);
+      try {
+        await saveTrade(user.uid, nextTrade);
+      } catch {
+        setMessage(`Review updated locally for trade #${trade.tradeNumber}. Firestore could not sync it.`);
+      }
     }
   }
 

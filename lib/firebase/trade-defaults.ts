@@ -20,7 +20,7 @@ export function normalizeTradeDocument(id: string, data: TradeRecord): Trade {
   const grossProfitLoss = readNumber(data.grossProfitLoss, readNumber(data.pnl, 0));
   const commission = readNumber(data.commission, readNumber(data.fees, 0));
   const swap = readNumber(data.swap, 0);
-  const netProfitLoss = readNumber(data.netProfitLoss, grossProfitLoss - commission + swap);
+  const netProfitLoss = readNumber(data.netProfitLoss, grossProfitLoss - commission - swap);
   const startingBalance = readNumber(data.startingBalance, 0);
   const withdrawalAmount = readNumber(data.withdrawalAmount, 0);
   const endingBalance = readNumber(

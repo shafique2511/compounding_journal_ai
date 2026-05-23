@@ -102,33 +102,43 @@ export function SettingsPanel() {
   }
 
   function exportTradesCsv() {
-    downloadFile("trade-journal-trades.csv", toCsv(trades), "text/csv");
-    setMessage("Trades CSV exported.");
+    runDataAction(() => downloadFile("trade-journal-trades.csv", toCsv(trades), "text/csv"), "Trades CSV exported.");
   }
 
   function exportDashboardCsv() {
-    const rows = [
-      ["Metric", "Value"],
-      ["Initial Balance", draft.initialBalance],
-      ["Current Balance", trades.at(-1)?.endingBalance ?? draft.initialBalance],
-      ["Total Net Profit", calculateCumulativeProfit(trades)],
-      ["Total Withdrawals", trades.reduce((total, trade) => total + safe(trade.withdrawalAmount), 0)],
-      ["Total Trades", trades.length],
-      ["Win Rate", calculateWinRate(trades)],
-      ["Loss Rate", calculateLossRate(trades)],
-      ["Maximum Drawdown", calculateMaxDrawdown(trades)],
-    ];
-    downloadFile("trade-journal-dashboard-summary.csv", rows.map((row) => row.join(",")).join("\n"), "text/csv");
-    setMessage("Dashboard summary CSV exported.");
+    runDataAction(() => {
+      const rows = [
+        ["Metric", "Value"],
+        ["Initial Balance", draft.initialBalance],
+        ["Current Balance", trades.at(-1)?.endingBalance ?? draft.initialBalance],
+        ["Total Net Profit", calculateCumulativeProfit(trades)],
+        ["Total Withdrawals", trades.reduce((total, trade) => total + safe(trade.withdrawalAmount), 0)],
+        ["Total Trades", trades.length],
+        ["Win Rate", calculateWinRate(trades)],
+        ["Loss Rate", calculateLossRate(trades)],
+        ["Maximum Drawdown", calculateMaxDrawdown(trades)],
+      ];
+      downloadFile("trade-journal-dashboard-summary.csv", rows.map((row) => row.join(",")).join("\n"), "text/csv");
+    }, "Dashboard summary CSV exported.");
   }
 
   function backupJson() {
-    downloadFile(
-      "trade-compounding-journal-backup.json",
-      JSON.stringify({ filterPresets, settings: draft, strategies, trades, withdrawals }, null, 2),
-      "application/json",
-    );
-    setMessage("Backup JSON exported.");
+    runDataAction(() => {
+      downloadFile(
+        "trade-compounding-journal-backup.json",
+        JSON.stringify({ filterPresets, settings: draft, strategies, trades, withdrawals }, null, 2),
+        "application/json",
+      );
+    }, "Backup JSON exported.");
+  }
+
+  function runDataAction(action: () => void, successMessage: string) {
+    try {
+      action();
+      setMessage(successMessage);
+    } catch {
+      setMessage("Data action failed. Check browser download permissions and try again.");
+    }
   }
 
   async function restoreJson(file: File | null) {

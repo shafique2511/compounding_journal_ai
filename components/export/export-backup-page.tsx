@@ -79,60 +79,61 @@ export function ExportBackupPage() {
   const strategyNames = unique(trades.map((trade) => trade.strategyName).filter(Boolean));
 
   function exportAllTrades() {
-    downloadFile("all-trades.csv", exportTradesToCsv(trades), "text/csv");
-    setMessage("All trades exported.");
+    runExport(() => downloadFile("all-trades.csv", exportTradesToCsv(trades), "text/csv"), "All trades exported.");
   }
 
   function exportFilteredTrades() {
-    downloadFile("filtered-trades.csv", exportTradesToCsv(filteredTrades), "text/csv");
-    setMessage("Filtered trades exported.");
+    runExport(() => downloadFile("filtered-trades.csv", exportTradesToCsv(filteredTrades), "text/csv"), "Filtered trades exported.");
   }
 
   function exportDashboardSummary() {
-    downloadFile("dashboard-summary.csv", exportDashboardSummaryToCsv(trades), "text/csv");
-    setMessage("Dashboard summary exported.");
+    runExport(() => downloadFile("dashboard-summary.csv", exportDashboardSummaryToCsv(trades), "text/csv"), "Dashboard summary exported.");
   }
 
   function exportAiHistoryCsv() {
-    downloadFile("ai-analysis-history.csv", exportAiAnalysesToCsv(aiAnalyses), "text/csv");
-    setMessage("AI analysis CSV exported.");
+    runExport(() => downloadFile("ai-analysis-history.csv", exportAiAnalysesToCsv(aiAnalyses), "text/csv"), "AI analysis CSV exported.");
   }
 
   function exportAiHistoryJson() {
-    downloadFile("ai-analysis-history.json", JSON.stringify(aiAnalyses, null, 2), "application/json");
-    setMessage("AI analysis JSON exported.");
+    runExport(() => downloadFile("ai-analysis-history.json", JSON.stringify(aiAnalyses, null, 2), "application/json"), "AI analysis JSON exported.");
   }
 
   function exportStrategyPlaybook() {
-    downloadFile("strategy-playbook.csv", exportStrategiesToCsv(strategies), "text/csv");
-    setMessage("Strategy Playbook exported.");
+    runExport(() => downloadFile("strategy-playbook.csv", exportStrategiesToCsv(strategies), "text/csv"), "Strategy Playbook exported.");
   }
 
   function exportReviewReport() {
-    downloadFile("review-report.csv", exportReviewReportToCsv(trades), "text/csv");
-    setMessage("Review report exported.");
+    runExport(() => downloadFile("review-report.csv", exportReviewReportToCsv(trades), "text/csv"), "Review report exported.");
   }
 
   function exportMistakeAnalysis() {
-    downloadFile("mistake-analysis.csv", exportMistakeAnalysisToCsv(trades), "text/csv");
-    setMessage("Mistake analysis exported.");
+    runExport(() => downloadFile("mistake-analysis.csv", exportMistakeAnalysisToCsv(trades), "text/csv"), "Mistake analysis exported.");
   }
 
   function exportFilterPresets() {
-    downloadFile("filter-presets.json", exportFilterPresetsToJson(filterPresets), "application/json");
-    setMessage("Filter presets exported.");
+    runExport(() => downloadFile("filter-presets.json", exportFilterPresetsToJson(filterPresets), "application/json"), "Filter presets exported.");
   }
 
   function backupAllData() {
-    const backup = createFullBackup({
-      aiAnalyses,
-      filterPresets,
-      settings,
-      strategies,
-      trades,
-    });
-    downloadFile("trade-compounding-journal-backup.json", JSON.stringify(backup, null, 2), "application/json");
-    setMessage("Full backup JSON exported.");
+    runExport(() => {
+      const backup = createFullBackup({
+        aiAnalyses,
+        filterPresets,
+        settings,
+        strategies,
+        trades,
+      });
+      downloadFile("trade-compounding-journal-backup.json", JSON.stringify(backup, null, 2), "application/json");
+    }, "Full backup JSON exported.");
+  }
+
+  function runExport(action: () => void, successMessage: string) {
+    try {
+      action();
+      setMessage(successMessage);
+    } catch {
+      setMessage("Export or backup failed. Check browser download permissions and try again.");
+    }
   }
 
   async function prepareRestore(file: File | null) {

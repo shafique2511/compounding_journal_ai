@@ -79,6 +79,7 @@ export function TradeForm({ trade }: TradeFormProps) {
   const { user } = useAuth();
   const { settings, strategies, trades, setTrades } = useJournalStore();
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [showChecklistWarning, setShowChecklistWarning] = useState(false);
   const [pendingValues, setPendingValues] = useState<TradeFormInput | null>(null);
   const form = useForm<TradeFormInput>({
@@ -170,6 +171,7 @@ export function TradeForm({ trade }: TradeFormProps) {
   }
 
   async function saveValues(valuesToSave: TradeFormInput) {
+    setMessage("");
     const nextTrade = createTradeFromForm(
       {
         ...valuesToSave,
@@ -186,7 +188,12 @@ export function TradeForm({ trade }: TradeFormProps) {
     setTrades(recalculatedTrades);
 
     if (user) {
-      await Promise.all(recalculatedTrades.map((item) => saveTrade(user.uid, item)));
+      try {
+        await Promise.all(recalculatedTrades.map((item) => saveTrade(user.uid, item)));
+      } catch {
+        setMessage("Trade saved locally. Firestore could not sync the latest balances.");
+        return;
+      }
     }
 
     router.push("/journal");
@@ -228,6 +235,7 @@ export function TradeForm({ trade }: TradeFormProps) {
     <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
       <FormHeader title={trade ? "Edit Trade" : "Add Trade"} />
       {error ? <p className="rounded-md border border-loss/30 bg-loss/10 p-3 text-sm text-loss">{error}</p> : null}
+      {message ? <p className="rounded-md border bg-card p-3 text-sm text-muted-foreground">{message}</p> : null}
       {riskWarnings.length > 0 ? (
         <div className="rounded-md border border-withdrawal/30 bg-withdrawal/10 p-3 text-sm text-withdrawal">
           <p className="font-medium">Risk warning</p>

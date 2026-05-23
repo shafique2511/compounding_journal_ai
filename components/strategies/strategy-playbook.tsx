@@ -21,13 +21,18 @@ export function StrategyPlaybook() {
   const { user } = useAuth();
   const { removeStrategy, strategies, trades, upsertStrategy } = useJournalStore();
   const [strategyToDelete, setStrategyToDelete] = useState<Strategy | null>(null);
+  const [message, setMessage] = useState("");
 
   async function handleToggleStrategy(strategy: Strategy) {
     const nextStrategy = { ...strategy, isActive: !strategy.isActive, updatedAt: getCurrentTimestamp() };
     upsertStrategy(nextStrategy);
 
     if (user) {
-      await saveStrategy(user.uid, nextStrategy);
+      try {
+        await saveStrategy(user.uid, nextStrategy);
+      } catch {
+        setMessage("Strategy updated locally. Firestore could not sync the change.");
+      }
     }
   }
 
@@ -39,7 +44,11 @@ export function StrategyPlaybook() {
     removeStrategy(strategyToDelete.id);
 
     if (user) {
-      await deleteUserDocument(user.uid, "strategies", strategyToDelete.id);
+      try {
+        await deleteUserDocument(user.uid, "strategies", strategyToDelete.id);
+      } catch {
+        setMessage("Strategy deleted locally. Firestore could not sync the deletion.");
+      }
     }
 
     setStrategyToDelete(null);
@@ -61,6 +70,8 @@ export function StrategyPlaybook() {
           </Link>
         </Button>
       </div>
+
+      {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {strategies.map((strategy) => (
