@@ -12,39 +12,123 @@ type LedgerEvent =
   | { id: string; type: "trade"; localDateTime: string; change: number }
   | { id: string; type: "withdrawal"; localDateTime: string; change: number };
 
-export function calculateEndingBalance(
-  startingBalance: number,
-  trades: Pick<Trade, "netProfitLoss" | "withdrawalAmount">[],
-  withdrawals: Pick<Withdrawal, "amount">[],
+export function calculateNetProfitLoss(
+  grossProfitLoss: unknown,
+  commission: unknown,
+  swap: unknown,
 ) {
-  const tradeNetProfitLoss = trades.reduce((total, trade) => total + trade.netProfitLoss, 0);
-  const tradeWithdrawalTotal = trades.reduce((total, trade) => total + trade.withdrawalAmount, 0);
-  const withdrawalTotal = withdrawals.reduce((total, withdrawal) => total + withdrawal.amount, 0);
+  return roundMoney(toNumber(grossProfitLoss) - toNumber(commission) - toNumber(swap));
+}
 
-  return roundMoney(startingBalance + tradeNetProfitLoss - tradeWithdrawalTotal - withdrawalTotal);
+export function calculateEndingBalance(
+  startingBalance: unknown,
+  netProfitLoss: unknown,
+  withdrawalAmount: unknown,
+) {
+  return roundMoney(toNumber(startingBalance) + toNumber(netProfitLoss) - toNumber(withdrawalAmount));
+}
+
+export function calculateGrowthPercent(netProfitLoss: unknown, startingBalance: unknown) {
+  const balance = toNumber(startingBalance);
+
+  if (balance === 0) {
+    return 0;
+  }
+
+  return roundPercent((toNumber(netProfitLoss) / balance) * 100);
+}
+
+export function calculateCompoundingReturn(startingBalance: unknown, endingBalance: unknown) {
+  const balance = toNumber(startingBalance);
+
+  if (balance === 0) {
+    return 0;
+  }
+
+  return roundPercent(((toNumber(endingBalance) - balance) / balance) * 100);
+}
+
+export function calculateEquityCurve(trades: Partial<Trade>[] = []) {
+  return sortTrades(trades).map((trade, index) => ({
+    tradeId: trade.id ?? String(index + 1),
+    tradeNumber: toNumber(trade.tradeNumber, index + 1),
+    timestamp: toNumber(trade.timestamp),
+    equity: roundMoney(toNumber(trade.endingBalance)),
+    netProfitLoss: roundMoney(toNumber(trade.netProfitLoss)),
+  }));
+}
+
+export function calculateDrawdownSeries(trades: Partial<Trade>[] = []) {
+  let peak = 0;
+
+  return calculateEquityCurve(trades).map((point) => {
+    peak = Math.max(peak, point.equity);
+    const drawdown = peak > 0 ? ((peak - point.equity) / peak) * 100 : 0;
+
+    return {
+      ...point,
+      peak: roundMoney(peak),
+      drawdownPercent: roundPercent(drawdown),
+    };
+  });
+}
+
+export function calculateCumulativeProfit(trades: Partial<Trade>[] = []) {
+  return roundMoney(trades.reduce((total, trade) => total + toNumber(trade.netProfitLoss), 0));
+}
+
+export function calculateMaxDrawdown(trades: Partial<Trade>[] = []) {
+  return calculateDrawdownSeries(trades).reduce(
+    (maximum, point) => Math.max(maximum, point.drawdownPercent),
+    0,
+  );
+}
+
+export function calculateDailyLossUsed(trades: Partial<Trade>[] = [], date = "") {
+  return roundMoney(
+    trades
+      .filter((trade) => !date || trade.date === date)
+      .filter((trade) => toNumber(trade.netProfitLoss) < 0)
+      .reduce((total, trade) => total + Math.abs(toNumber(trade.netProfitLoss)), 0),
+  );
+}
+
+export function calculateWeeklyLossUsed(trades: Partial<Trade>[] = [], weekStartTimestamp = 0) {
+  const weekStart = toNumber(weekStartTimestamp);
+  const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000;
+
+  return roundMoney(
+    trades
+      .filter((trade) => {
+        const timestamp = toNumber(trade.timestamp);
+        return weekStart <= 0 || (timestamp >= weekStart && timestamp < weekEnd);
+      })
+      .filter((trade) => toNumber(trade.netProfitLoss) < 0)
+      .reduce((total, trade) => total + Math.abs(toNumber(trade.netProfitLoss)), 0),
+  );
 }
 
 export function buildBalanceCurve(
-  startingBalance: number,
-  trades: Pick<Trade, "id" | "date" | "time" | "netProfitLoss" | "withdrawalAmount">[],
-  withdrawals: Pick<Withdrawal, "id" | "withdrawnAtLocal" | "amount">[],
+  startingBalance: unknown,
+  trades: Partial<Trade>[] = [],
+  withdrawals: Partial<Withdrawal>[] = [],
 ) {
   const events: LedgerEvent[] = [
-    ...trades.map((trade) => ({
-      id: trade.id,
+    ...trades.map((trade, index) => ({
+      id: trade.id ?? `trade-${index + 1}`,
       type: "trade" as const,
-      localDateTime: `${trade.date}T${trade.time}`,
-      change: trade.netProfitLoss - trade.withdrawalAmount,
+      localDateTime: `${trade.date ?? ""}T${trade.time ?? ""}`,
+      change: toNumber(trade.netProfitLoss) - toNumber(trade.withdrawalAmount),
     })),
-    ...withdrawals.map((withdrawal) => ({
-      id: withdrawal.id,
+    ...withdrawals.map((withdrawal, index) => ({
+      id: withdrawal.id ?? `withdrawal-${index + 1}`,
       type: "withdrawal" as const,
-      localDateTime: withdrawal.withdrawnAtLocal,
-      change: -withdrawal.amount,
+      localDateTime: withdrawal.withdrawnAtLocal ?? "",
+      change: -toNumber(withdrawal.amount),
     })),
   ].sort((first, second) => first.localDateTime.localeCompare(second.localDateTime));
 
-  let runningBalance = startingBalance;
+  let runningBalance = toNumber(startingBalance);
 
   return events.map<BalancePoint>((event) => {
     runningBalance = roundMoney(runningBalance + event.change);
@@ -56,14 +140,18 @@ export function buildBalanceCurve(
   });
 }
 
-export function calculateCompoundingReturn(startingBalance: number, endingBalance: number) {
-  if (startingBalance <= 0) {
-    return 0;
-  }
+function sortTrades(trades: Partial<Trade>[]) {
+  return [...trades].sort((first, second) => toNumber(first.timestamp) - toNumber(second.timestamp));
+}
 
-  return Number((((endingBalance - startingBalance) / startingBalance) * 100).toFixed(2));
+function toNumber(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function roundPercent(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
