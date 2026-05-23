@@ -1,5 +1,15 @@
 export { getStorageBucket, getSupabaseClient, requireSupabaseClient } from "@/lib/supabase/config";
 export {
+  getCurrentSession,
+  getCurrentUser,
+  requireUser,
+  resetPassword,
+  signIn,
+  signOut,
+  signUp,
+  type SupabaseAuthUser,
+} from "@/src/lib/supabase/client";
+export {
   loginWithEmail,
   loginWithGoogle,
   logout,
