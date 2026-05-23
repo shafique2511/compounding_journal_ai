@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { ReviewPage } from "@/components/review";
 
-export default function ReviewPage() {
-  return <PagePlaceholder title="Review" />;
+export default function ReviewRoute() {
+  return <ReviewPage />;
 }
