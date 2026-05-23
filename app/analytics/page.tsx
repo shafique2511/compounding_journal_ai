@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { AnalyticsPage } from "@/components/analytics";
 
-export default function AnalyticsPage() {
-  return <PagePlaceholder title="Analytics" />;
+export default function AnalyticsRoute() {
+  return <AnalyticsPage />;
 }
