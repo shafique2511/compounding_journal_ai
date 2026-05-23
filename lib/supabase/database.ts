@@ -5,13 +5,13 @@ import { DEFAULT_SETTINGS } from "@/store/default-state";
 import type { AiAnalysis, AppSettings, FilterPreset, Strategy, Trade } from "@/types";
 
 type UserCollection = "trades" | "aiAnalyses" | "strategies" | "filterPresets" | "settings";
-type SupabaseTable = "ai_analyses" | "filter_presets" | "settings" | "strategies" | "trades";
+type SupabaseTable = "ai_analyses" | "filter_presets" | "strategies" | "trades" | "user_settings";
 type JsonRecord = Record<string, unknown>;
 
 const tableMap: Record<UserCollection, SupabaseTable> = {
   aiAnalyses: "ai_analyses",
   filterPresets: "filter_presets",
-  settings: "settings",
+  settings: "user_settings",
   strategies: "strategies",
   trades: "trades",
 };
@@ -32,7 +32,15 @@ export async function initializeUserAccount(user: {
   const displayName = user.displayName ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? "";
   const { error: profileError } = await supabase
     .from("profiles")
-    .upsert({ id: user.id, email: user.email ?? "", display_name: displayName });
+    .upsert(
+      {
+        user_id: user.id,
+        email: user.email ?? "",
+        display_name: displayName,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
 
   if (profileError) {
     throwPostgrestError(profileError);
@@ -92,8 +100,21 @@ export function saveFilterPreset(userId: string, preset: FilterPreset) {
   return upsertDocument(userId, "filterPresets", preset.id, preset);
 }
 
-export function saveUserSettings(userId: string, settings: AppSettings) {
-  return upsertDocument(userId, "settings", "default", settings);
+export async function saveUserSettings(userId: string, settings: AppSettings) {
+  const { error } = await requireSupabaseClient()
+    .from("user_settings")
+    .upsert(
+      {
+        user_id: userId,
+        data: settings,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+  if (error) {
+    throwPostgrestError(error);
+  }
 }
 
 export async function deleteUserDocument(

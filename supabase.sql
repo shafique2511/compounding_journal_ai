@@ -1,66 +1,66 @@
 -- Trade Compounding Journal AI - Supabase schema
--- Run this in Supabase SQL Editor, then create a private storage bucket named "trade-journal".
+-- Run this in Supabase SQL Editor. The script is safe to run more than once.
+
+create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
   email text not null default '',
   display_name text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.settings (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null default 'default',
+create table if not exists public.user_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references auth.users(id) on delete cascade,
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, id)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.trades (
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null,
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, id)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.ai_analyses (
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null,
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, id)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.strategies (
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null,
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, id)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.filter_presets (
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null,
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, id)
+  updated_at timestamptz not null default now()
 );
 
+create index if not exists profiles_user_id_idx on public.profiles (user_id);
+create index if not exists user_settings_user_id_idx on public.user_settings (user_id);
 create index if not exists trades_user_updated_idx on public.trades (user_id, updated_at desc);
 create index if not exists ai_analyses_user_updated_idx on public.ai_analyses (user_id, updated_at desc);
 create index if not exists strategies_user_updated_idx on public.strategies (user_id, updated_at desc);
 create index if not exists filter_presets_user_updated_idx on public.filter_presets (user_id, updated_at desc);
 
 alter table public.profiles enable row level security;
-alter table public.settings enable row level security;
+alter table public.user_settings enable row level security;
 alter table public.trades enable row level security;
 alter table public.ai_analyses enable row level security;
 alter table public.strategies enable row level security;
@@ -71,12 +71,12 @@ create policy "profiles owner read write"
 on public.profiles
 for all
 to authenticated
-using ((select auth.uid()) = id)
-with check ((select auth.uid()) = id);
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
 
-drop policy if exists "settings owner read write" on public.settings;
-create policy "settings owner read write"
-on public.settings
+drop policy if exists "user settings owner read write" on public.user_settings;
+create policy "user settings owner read write"
+on public.user_settings
 for all
 to authenticated
 using ((select auth.uid()) = user_id)
@@ -114,7 +114,6 @@ to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
 
--- Storage policies for private bucket "trade-journal".
 insert into storage.buckets (id, name, public)
 values ('trade-journal', 'trade-journal', false)
 on conflict (id) do update set public = false;
@@ -128,7 +127,7 @@ using (
   bucket_id = 'trade-journal'
   and (storage.foldername(name))[1] = 'screenshots'
   and (storage.foldername(name))[2] = (select auth.uid())::text
-  and (storage.filename(name) in ('before.jpg', 'after.jpg'))
+  and storage.filename(name) in ('before.jpg', 'after.jpg')
 );
 
 drop policy if exists "trade screenshots owner write" on storage.objects;
@@ -140,13 +139,13 @@ using (
   bucket_id = 'trade-journal'
   and (storage.foldername(name))[1] = 'screenshots'
   and (storage.foldername(name))[2] = (select auth.uid())::text
-  and (storage.filename(name) in ('before.jpg', 'after.jpg'))
+  and storage.filename(name) in ('before.jpg', 'after.jpg')
 )
 with check (
   bucket_id = 'trade-journal'
   and (storage.foldername(name))[1] = 'screenshots'
   and (storage.foldername(name))[2] = (select auth.uid())::text
-  and (storage.filename(name) in ('before.jpg', 'after.jpg'))
+  and storage.filename(name) in ('before.jpg', 'after.jpg')
 );
 
 drop policy if exists "strategy screenshots owner read" on storage.objects;
