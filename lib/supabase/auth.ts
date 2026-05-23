@@ -1,5 +1,5 @@
 import { initializeUserAccount } from "@/lib/supabase/database";
-import { createFriendlyError } from "@/lib/errors/app-error";
+import { createFriendlyError, logTechnicalError } from "@/lib/errors/app-error";
 import {
   requireSupabaseBrowserClient,
   resetPassword,
@@ -16,7 +16,9 @@ export async function registerWithEmail(email: string, password: string) {
   const data = await signUp(email, password);
 
   if (data.user) {
-    await initializeUserAccount(data.user);
+    await initializeUserAccount(data.user).catch((caughtError) => {
+      logTechnicalError(caughtError, { action: "initialize registered user account", source: "database" });
+    });
   }
 
   return data;
@@ -26,7 +28,9 @@ export async function loginWithEmail(email: string, password: string) {
   const data = await signIn(email, password);
 
   if (data.user) {
-    await initializeUserAccount(data.user);
+    await initializeUserAccount(data.user).catch((caughtError) => {
+      logTechnicalError(caughtError, { action: "initialize logged-in user account", source: "database" });
+    });
   }
 
   return data;
@@ -61,9 +65,15 @@ export async function logout() {
 export function subscribeToAuthState(callback: (user: AuthUser | null) => void) {
   const supabase = requireSupabaseBrowserClient();
 
-  supabase.auth.getUser().then(({ data }) => {
-    callback(normalizeSupabaseUser(data.user));
-  });
+  supabase.auth
+    .getUser()
+    .then(({ data }) => {
+      callback(normalizeSupabaseUser(data.user));
+    })
+    .catch((caughtError) => {
+      logTechnicalError(caughtError, { action: "load initial auth user", source: "auth" });
+      callback(null);
+    });
 
   const { data } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(normalizeSupabaseUser(session?.user ?? null));

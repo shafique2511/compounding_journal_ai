@@ -55,6 +55,7 @@ export function AuthCard({ mode }: AuthCardProps) {
       }
 
       router.push("/dashboard");
+      router.refresh();
     } catch (caughtError) {
       setAuthError(readAuthError(caughtError));
     }
@@ -67,6 +68,7 @@ export function AuthCard({ mode }: AuthCardProps) {
     try {
       await loginWithGoogle();
       router.push("/dashboard");
+      router.refresh();
     } catch (caughtError) {
       setAuthError(readAuthError(caughtError));
     }
