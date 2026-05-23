@@ -1,11 +1,28 @@
 import type { AppSettings, JournalState } from "@/types";
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: "system",
+  initialBalance: 10_000,
+  currency: "USD",
+  timezoneOffset: "UTC+00:00",
+  dateFormat: "YYYY-MM-DD",
+  timeFormat: "24-hour",
+  defaultTimeframe: "M15",
+  defaultSymbol: "",
+  defaultCommission: 0,
+  defaultSwap: 0,
+  themeMode: "system",
+  accentColor: "#2563eb",
   aiProvider: "openai",
-  timezoneOffsetMinutes: 0,
-  accountStartingBalance: 10_000,
-  accountCurrency: "USD",
+  aiModel: "gpt-4.1-mini",
+  enableScreenshotAnalysis: true,
+  saveAiAnalysisHistory: true,
+  maxRiskPerTradePercent: 2,
+  maxDailyLossPercent: 5,
+  maxWeeklyLossPercent: 10,
+  maxTradesPerDay: 5,
+  maxLosingStreakWarning: 3,
+  minimumRiskRewardRatio: 2,
+  enableRiskWarning: true,
 };
 
 export const DEFAULT_JOURNAL_STATE: JournalState = {

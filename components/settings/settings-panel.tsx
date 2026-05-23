@@ -35,7 +35,7 @@ export function SettingsPanel() {
   return (
     <SettingsForm
       initialSettings={settings}
-      key={`${settings.theme}-${settings.aiProvider}-${settings.timezoneOffsetMinutes}-${settings.accountStartingBalance}-${settings.accountCurrency}`}
+      key={`${settings.themeMode}-${settings.aiProvider}-${settings.timezoneOffset}-${settings.initialBalance}-${settings.currency}`}
       onSave={saveSettings}
     />
   );
@@ -51,10 +51,7 @@ function SettingsForm({
   const { setTheme } = useTheme();
   const [draft, setDraft] = useState<AppSettings>(() => initialSettings);
   const [message, setMessage] = useState("");
-  const previewLabel = useMemo(
-    () => formatTimezoneOffset(Number(draft.timezoneOffsetMinutes)),
-    [draft.timezoneOffsetMinutes],
-  );
+  const previewLabel = useMemo(() => draft.timezoneOffset, [draft.timezoneOffset]);
 
   function handleSave() {
     const parsedSettings = settingsSchema.safeParse(draft);
@@ -65,14 +62,14 @@ function SettingsForm({
     }
 
     onSave(parsedSettings.data);
-    setTheme(parsedSettings.data.theme);
+    setTheme(parsedSettings.data.themeMode);
     setMessage("Settings saved on this device.");
   }
 
   function handleUseBrowserOffset() {
     setDraft((current) => ({
       ...current,
-      timezoneOffsetMinutes: getBrowserTimezoneOffsetMinutes(),
+      timezoneOffset: formatTimezoneOffset(getBrowserTimezoneOffsetMinutes()),
     }));
     setMessage("");
   }
@@ -98,11 +95,11 @@ function SettingsForm({
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
-                accountStartingBalance: Number(event.target.value),
+                initialBalance: Number(event.target.value),
               }))
             }
             type="number"
-            value={draft.accountStartingBalance}
+            value={draft.initialBalance}
           />
         </label>
 
@@ -112,26 +109,23 @@ function SettingsForm({
             className="h-10 w-full rounded-md border bg-background px-3 text-sm uppercase outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
             maxLength={8}
             onChange={(event) =>
-              setDraft((current) => ({ ...current, accountCurrency: event.target.value }))
+              setDraft((current) => ({ ...current, currency: event.target.value }))
             }
-            value={draft.accountCurrency}
+            value={draft.currency}
           />
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-medium">Manual timezone offset in minutes</span>
+          <span className="text-sm font-medium">Manual timezone offset</span>
           <input
             className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-            max="840"
-            min="-840"
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
-                timezoneOffsetMinutes: Number(event.target.value),
+                timezoneOffset: event.target.value,
               }))
             }
-            type="number"
-            value={draft.timezoneOffsetMinutes}
+            value={draft.timezoneOffset}
           />
           <span className="block text-xs text-muted-foreground">{previewLabel}</span>
         </label>
@@ -141,7 +135,7 @@ function SettingsForm({
           <div className="grid grid-cols-3 gap-2">
             {themeOptions.map((option) => {
               const Icon = option.icon;
-              const isSelected = draft.theme === option.value;
+              const isSelected = draft.themeMode === option.value;
 
               return (
                 <button
@@ -153,7 +147,7 @@ function SettingsForm({
                   )}
                   key={option.value}
                   onClick={() => {
-                    setDraft((current) => ({ ...current, theme: option.value }));
+                    setDraft((current) => ({ ...current, themeMode: option.value }));
                     setTheme(option.value);
                     setMessage("");
                   }}

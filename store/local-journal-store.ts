@@ -22,7 +22,7 @@ export function readJournalState(): JournalState {
       ...DEFAULT_JOURNAL_STATE,
       settings: {
         ...DEFAULT_JOURNAL_STATE.settings,
-        timezoneOffsetMinutes: -new Date().getTimezoneOffset(),
+        timezoneOffset: formatOffset(-new Date().getTimezoneOffset()),
       },
     };
     return cachedState;
@@ -42,6 +42,17 @@ export function readJournalState(): JournalState {
     cachedState = DEFAULT_JOURNAL_STATE;
     return cachedState;
   }
+}
+
+function formatOffset(offsetMinutes: number) {
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absoluteMinutes = Math.abs(offsetMinutes);
+  const hours = Math.floor(absoluteMinutes / 60)
+    .toString()
+    .padStart(2, "0");
+  const minutes = (absoluteMinutes % 60).toString().padStart(2, "0");
+
+  return `UTC${sign}${hours}:${minutes}`;
 }
 
 export function writeJournalState(state: JournalState) {

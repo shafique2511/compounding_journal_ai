@@ -68,12 +68,43 @@ export const withdrawalSchema = z.object({
 });
 
 export const strategySchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  description: z.string().max(3000).default(""),
-  marketConditions: z.string().max(2000).default(""),
-  entryRules: z.array(z.string()).default([]),
-  exitRules: z.array(z.string()).default([]),
-  riskRules: z.array(z.string()).default([]),
-  tags: z.array(z.string()).default([]),
-  isActive: z.boolean().default(true),
+  id: z.string().min(1),
+  strategyName: z.string().trim().min(1).max(120),
+  marketType: z.string().trim().max(120),
+  timeframe: z.string().trim().max(12),
+  entryRules: z.string().max(5000),
+  exitRules: z.string().max(5000),
+  stopLossRules: z.string().max(5000),
+  takeProfitRules: z.string().max(5000),
+  riskRules: z.string().max(5000),
+  exampleScreenshotUrl: z.string().url().optional(),
+  notes: z.string().max(5000),
+  isActive: z.boolean(),
+  createdAt: z.coerce.number().nonnegative(),
+  updatedAt: z.coerce.number().nonnegative(),
+});
+
+export const filterPresetSchema = z.object({
+  id: z.string().min(1),
+  presetName: z.string().trim().min(1).max(120),
+  dateFilter: z.string().max(120),
+  symbolFilter: z.string().max(120),
+  timeframeFilter: z.string().max(120),
+  strategyFilter: z.string().max(120),
+  statusFilter: z.string().max(120),
+  qualityGradeFilter: z.string().max(120),
+  ruleFollowedFilter: z.string().max(120),
+  createdAt: z.coerce.number().nonnegative(),
+  updatedAt: z.coerce.number().nonnegative(),
+});
+
+export const aiAnalysisSchema = z.object({
+  id: z.string().min(1),
+  provider: z.enum(["gemini", "openai"]),
+  model: z.string().trim().min(1).max(100),
+  analysisType: z.string().trim().min(1).max(120),
+  dateRange: z.string().max(120),
+  inputSummary: z.record(z.string(), z.unknown()),
+  result: z.string(),
+  createdAt: z.coerce.number().nonnegative(),
 });

@@ -14,6 +14,10 @@ export type ScreenshotSlot = "beforeEntry" | "afterEntry";
 
 export type AiProvider = "openai" | "gemini";
 
+export type DateFormat = "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
+
+export type TimeFormat = "12-hour" | "24-hour";
+
 export type TradeScreenshot = {
   id: string;
   slot: ScreenshotSlot;
@@ -93,40 +97,69 @@ export type Withdrawal = {
 
 export type Strategy = {
   id: string;
-  name: string;
-  description: string;
-  marketConditions: string;
-  entryRules: string[];
-  exitRules: string[];
-  riskRules: string[];
-  tags: string[];
+  strategyName: string;
+  marketType: string;
+  timeframe: string;
+  entryRules: string;
+  exitRules: string;
+  stopLossRules: string;
+  takeProfitRules: string;
+  riskRules: string;
+  exampleScreenshotUrl?: string;
+  notes: string;
   isActive: boolean;
-  createdAtLocal: string;
-  updatedAtLocal: string;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type AiAnalysis = {
   id: string;
   provider: AiProvider;
-  prompt: string;
-  analysis: string;
-  createdAtLocal: string;
+  model: string;
+  analysisType: string;
+  dateRange: string;
+  inputSummary: Record<string, unknown>;
+  result: string;
+  createdAt: number;
 };
 
 export type FilterPreset = {
   id: string;
-  name: string;
-  filters: Record<string, string | number | boolean | string[]>;
-  createdAtLocal: string;
-  updatedAtLocal: string;
+  presetName: string;
+  dateFilter: string;
+  symbolFilter: string;
+  timeframeFilter: string;
+  strategyFilter: string;
+  statusFilter: string;
+  qualityGradeFilter: string;
+  ruleFollowedFilter: string;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type AppSettings = {
-  theme: "light" | "dark" | "system";
+  initialBalance: number;
+  currency: string;
+  timezoneOffset: string;
+  dateFormat: DateFormat;
+  timeFormat: TimeFormat;
+  defaultTimeframe: string;
+  defaultSymbol: string;
+  defaultCommission: number;
+  defaultSwap: number;
+  themeMode: "light" | "dark" | "system";
+  accentColor: string;
   aiProvider: AiProvider;
-  timezoneOffsetMinutes: number;
-  accountStartingBalance: number;
-  accountCurrency: string;
+  aiModel: string;
+  enableScreenshotAnalysis: boolean;
+  saveAiAnalysisHistory: boolean;
+  maxRiskPerTradePercent: number;
+  maxDailyLossPercent: number;
+  maxWeeklyLossPercent: number;
+  maxTradesPerDay: number;
+  maxLosingStreakWarning: number;
+  minimumRiskRewardRatio: number;
+  enableRiskWarning: boolean;
 };
 
 export type JournalState = {
