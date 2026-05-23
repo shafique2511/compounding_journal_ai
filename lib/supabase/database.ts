@@ -1,26 +1,33 @@
 import type { PostgrestError } from "@supabase/supabase-js";
-import { normalizeTradeDocument } from "@/lib/supabase/trade-defaults";
 import { requireSupabaseClient } from "@/lib/supabase/config";
 import { DEFAULT_SETTINGS } from "@/store/default-state";
+import {
+  aiAnalysisFromRow,
+  aiAnalysisToInsert,
+  filterPresetFromRow,
+  filterPresetToInsert,
+  settingsFromRow,
+  settingsToUpdate,
+  strategyFromRow,
+  strategyToInsert,
+  tradeFromRow,
+  tradeToInsert,
+  type AiAnalysisRow,
+  type FilterPresetRow,
+  type SettingsRow,
+  type StrategyRow,
+  type TradeRow,
+} from "@/lib/supabase/mappers";
 import type { AiAnalysis, AppSettings, FilterPreset, Strategy, Trade } from "@/types";
 
 type UserCollection = "trades" | "aiAnalyses" | "strategies" | "filterPresets" | "settings";
 type SupabaseTable = "ai_analyses" | "filter_presets" | "strategies" | "trades" | "user_settings";
-type DbRecord = Record<string, unknown>;
-
 const tableMap: Record<UserCollection, SupabaseTable> = {
   aiAnalyses: "ai_analyses",
   filterPresets: "filter_presets",
   settings: "user_settings",
   strategies: "strategies",
   trades: "trades",
-};
-
-type Row = {
-  id: string;
-  user_id: string;
-  created_at?: string;
-  updated_at?: string;
 };
 
 export async function initializeUserAccount(user: {
@@ -65,7 +72,9 @@ export async function listUserDocuments<T extends { id: string }>(
     throwPostgrestError(error);
   }
 
-  return ((data ?? []) as Row[]).map((row) => rowToDocument<T>(row));
+  return ((data ?? []) as Record<string, unknown>[]).map((row) =>
+    mapRowByCollection(collectionName, row),
+  ) as T[];
 }
 
 export async function listTrades(userId: string) {
@@ -78,25 +87,23 @@ export async function listTrades(userId: string) {
     throwPostgrestError(error);
   }
 
-  return ((data ?? []) as Row[]).map((row) =>
-    normalizeTradeDocument(row.id, rowToDocument<DbRecord>(row)),
-  );
+  return ((data ?? []) as TradeRow[]).map(tradeFromRow);
 }
 
 export function saveTrade(userId: string, trade: Trade) {
-  return upsertDocument(userId, "trades", trade.id, trade);
+  return upsertRow("trades", tradeToInsert(trade, userId));
 }
 
 export function saveStrategy(userId: string, strategy: Strategy) {
-  return upsertDocument(userId, "strategies", strategy.id, strategy);
+  return upsertRow("strategies", strategyToInsert(strategy, userId));
 }
 
 export function saveAiAnalysis(userId: string, analysis: AiAnalysis) {
-  return upsertDocument(userId, "aiAnalyses", analysis.id, analysis);
+  return upsertRow("aiAnalyses", aiAnalysisToInsert(analysis, userId));
 }
 
 export function saveFilterPreset(userId: string, preset: FilterPreset) {
-  return upsertDocument(userId, "filterPresets", preset.id, preset);
+  return upsertRow("filterPresets", filterPresetToInsert(preset, userId));
 }
 
 export async function saveUserSettings(userId: string, settings: AppSettings) {
@@ -104,8 +111,7 @@ export async function saveUserSettings(userId: string, settings: AppSettings) {
     .from("user_settings")
     .upsert(
       {
-        user_id: userId,
-        ...toDbColumns(settings, userSettingsColumns),
+        ...settingsToUpdate(settings, userId),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
@@ -132,20 +138,13 @@ export async function deleteUserDocument(
   }
 }
 
-async function upsertDocument(
-  userId: string,
+async function upsertRow(
   collectionName: UserCollection,
-  documentId: string,
-  data: DbRecord,
+  data: Record<string, unknown>,
 ) {
   const { error } = await requireSupabaseClient()
     .from(tableMap[collectionName])
-    .upsert({
-      id: documentId,
-      user_id: userId,
-      ...toDbColumns(data),
-      updated_at: new Date().toISOString(),
-    });
+    .upsert(data);
 
   if (error) {
     throwPostgrestError(error);
@@ -156,67 +155,11 @@ function throwPostgrestError(error: PostgrestError): never {
   throw new Error(error.message || "Supabase database request failed.");
 }
 
-function rowToDocument<T extends DbRecord>(row: Row) {
-  const document: DbRecord = {};
-
-  Object.entries(row).forEach(([key, value]) => {
-    if (key === "user_id" || key === "created_at" || key === "updated_at") {
-      return;
-    }
-
-    document[toCamelCase(key)] = value;
-  });
-
-  return document as T;
-}
-
-const userSettingsColumns = new Set([
-  "initial_balance",
-  "currency",
-  "timezone_offset",
-  "date_format",
-  "time_format",
-  "default_timeframe",
-  "default_symbol",
-  "default_commission",
-  "default_swap",
-  "theme_mode",
-  "accent_color",
-  "ai_provider",
-  "ai_model",
-  "enable_screenshot_analysis",
-  "save_ai_analysis_history",
-  "max_risk_per_trade_percent",
-  "max_daily_loss_percent",
-  "max_weekly_loss_percent",
-  "max_trades_per_day",
-  "max_losing_streak_warning",
-  "minimum_risk_reward_ratio",
-  "enable_risk_warning",
-]);
-
-function toDbColumns(data: DbRecord, allowedColumns?: Set<string>) {
-  const columns: DbRecord = {};
-
-  Object.entries(data).forEach(([key, value]) => {
-    if (value === undefined || key === "createdAt" || key === "updatedAt") {
-      return;
-    }
-
-    const columnName = toSnakeCase(key);
-
-    if (!allowedColumns || allowedColumns.has(columnName)) {
-      columns[columnName] = value;
-    }
-  });
-
-  return columns;
-}
-
-function toSnakeCase(value: string) {
-  return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
-
-function toCamelCase(value: string) {
-  return value.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+function mapRowByCollection(collectionName: UserCollection, row: Record<string, unknown>) {
+  if (collectionName === "aiAnalyses") return aiAnalysisFromRow(row as AiAnalysisRow);
+  if (collectionName === "filterPresets") return filterPresetFromRow(row as FilterPresetRow);
+  if (collectionName === "settings") return settingsFromRow(row as SettingsRow);
+  if (collectionName === "strategies") return strategyFromRow(row as StrategyRow);
+  if (collectionName === "trades") return tradeFromRow(row as TradeRow);
+  return row;
 }
