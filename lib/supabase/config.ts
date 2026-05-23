@@ -2,7 +2,12 @@ import {
   createSupabaseBrowserClient,
   requireSupabaseBrowserClient,
 } from "@/src/lib/supabase/client";
-const STORAGE_BUCKET = "trade-journal";
+
+export const STORAGE_BUCKETS = {
+  backups: "backups",
+  strategyScreenshots: "strategy-screenshots",
+  tradeScreenshots: "trade-screenshots",
+} as const;
 
 export function getSupabaseClient() {
   return createSupabaseBrowserClient();
@@ -13,5 +18,5 @@ export function requireSupabaseClient() {
 }
 
 export function getStorageBucket() {
-  return STORAGE_BUCKET;
+  return STORAGE_BUCKETS.tradeScreenshots;
 }

@@ -31,6 +31,7 @@ export {
 } from "@/lib/supabase/database";
 export {
   deleteStorageFile,
+  uploadBackupFile,
   uploadStrategyScreenshot,
   uploadTradeScreenshot,
 } from "@/lib/supabase/storage";
