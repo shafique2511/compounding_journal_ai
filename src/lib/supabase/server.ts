@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Session } from "@supabase/supabase-js";
+import { createFriendlyError } from "@/lib/errors/app-error";
 import type { SupabaseAuthUser } from "@/src/lib/supabase/client";
 import type { Database } from "@/src/types/supabase";
 
@@ -36,7 +37,7 @@ export async function requireSupabaseServerClient() {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
-    throw new Error("Supabase is not configured. Add Supabase URL and anon key to the environment.");
+    throw createFriendlyError("Missing Supabase server configuration.", { source: "auth" });
   }
 
   return supabase;
@@ -47,7 +48,7 @@ export async function getCurrentSession(): Promise<Session | null> {
   const { data, error } = await supabase.auth.getSession();
 
   if (error) {
-    throw new Error(error.message);
+    throw createFriendlyError(error, { action: "get server session", source: "auth" });
   }
 
   return data.session;
@@ -58,7 +59,7 @@ export async function getCurrentUser(): Promise<SupabaseAuthUser | null> {
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {
-    throw new Error(error.message);
+    throw createFriendlyError(error, { action: "get server user", source: "auth" });
   }
 
   return data.user;
@@ -68,7 +69,7 @@ export async function requireUser() {
   const user = await getCurrentUser();
 
   if (!user) {
-    throw new Error("Sign in is required.");
+    throw createFriendlyError("User not authenticated.", { source: "auth" });
   }
 
   return user;

@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import {
   loginWithEmail,
   loginWithGoogle,
@@ -201,5 +202,6 @@ export function AuthCard({ mode }: AuthCardProps) {
 }
 
 function readAuthError(caughtError: unknown) {
-  return caughtError instanceof Error ? caughtError.message : "Authentication request failed.";
+  logTechnicalError(caughtError, { action: "authentication form", source: "auth" });
+  return getFriendlyErrorMessage(caughtError, "Authentication request failed. Check your details and try again.");
 }

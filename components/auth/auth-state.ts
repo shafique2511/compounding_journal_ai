@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { subscribeToAuthState, type AuthUser } from "@/lib/supabase";
 
 type AuthSnapshot = {
@@ -32,10 +33,11 @@ function ensureAuthSubscription() {
       emit({ user, isLoading: false, error: "" });
     });
   } catch (caughtError) {
+    logTechnicalError(caughtError, { action: "subscribe auth state", source: "auth" });
     emit({
       user: null,
       isLoading: false,
-      error: caughtError instanceof Error ? caughtError.message : "Authentication is unavailable.",
+      error: getFriendlyErrorMessage(caughtError, "Authentication is unavailable."),
     });
   }
 }

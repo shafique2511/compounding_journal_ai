@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteStorageFile, saveStrategy, uploadStrategyScreenshot } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
 import { useJournalStore } from "@/store";
@@ -81,8 +82,9 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
     if (user) {
       try {
         await saveStrategy(user.id, nextStrategy);
-      } catch {
-        setMessage("Strategy saved locally. Supabase could not sync it.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "save strategy", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Strategy saved locally. Supabase could not sync it."));
         return;
       }
     }
@@ -106,7 +108,8 @@ export function StrategyForm({ strategy }: { strategy?: Strategy }) {
       const url = await uploadStrategyScreenshot(user.id, strategyId, file);
       form.setValue("exampleScreenshotUrl", url, { shouldDirty: true });
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Screenshot upload failed.");
+      logTechnicalError(caughtError, { action: "upload strategy screenshot", source: "storage" });
+      setError(getFriendlyErrorMessage(caughtError, "Screenshot upload failed. Check storage permissions and try again."));
     }
   }
 

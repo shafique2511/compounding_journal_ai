@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { logout } from "@/lib/supabase";
 
 export function LogoutButton() {
@@ -23,7 +24,8 @@ export function LogoutButton() {
       await logout();
       router.push("/login");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Logout failed.");
+      logTechnicalError(caughtError, { action: "logout", source: "auth" });
+      setError(getFriendlyErrorMessage(caughtError, "Logout failed. Please try again."));
     }
   }
 

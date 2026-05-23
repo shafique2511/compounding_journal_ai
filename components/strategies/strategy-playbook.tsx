@@ -5,6 +5,7 @@ import { Edit, Eye, Plus, Power, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteUserDocument, saveStrategy } from "@/lib/supabase";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
 import {
@@ -30,8 +31,9 @@ export function StrategyPlaybook() {
     if (user) {
       try {
         await saveStrategy(user.id, nextStrategy);
-      } catch {
-        setMessage("Strategy updated locally. Supabase could not sync the change.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "toggle strategy", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Strategy updated locally. Supabase could not sync the change."));
       }
     }
   }
@@ -46,8 +48,9 @@ export function StrategyPlaybook() {
     if (user) {
       try {
         await deleteUserDocument(user.id, "strategies", strategyToDelete.id);
-      } catch {
-        setMessage("Strategy deleted locally. Supabase could not sync the deletion.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "delete strategy", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Strategy deleted locally. Supabase could not sync the deletion."));
       }
     }
 

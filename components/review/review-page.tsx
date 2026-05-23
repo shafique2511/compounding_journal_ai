@@ -5,6 +5,7 @@ import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { saveTrade } from "@/lib/supabase";
 import { useJournalStore } from "@/store";
 import type { Trade } from "@/types";
@@ -61,8 +62,9 @@ export function ReviewPage() {
     if (user) {
       try {
         await saveTrade(user.id, nextTrade);
-      } catch {
-        setMessage(`Review updated locally for trade #${trade.tradeNumber}. Supabase could not sync it.`);
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "save review", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, `Review updated locally for trade #${trade.tradeNumber}. Supabase could not sync it.`));
       }
     }
   }

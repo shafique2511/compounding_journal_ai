@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/components/auth";
+import { logTechnicalError } from "@/lib/errors/app-error";
 import { loadBackupData } from "@/src/services/backupService";
 import { DEFAULT_SETTINGS, useJournalStore } from "@/store";
 
@@ -42,7 +43,9 @@ export function JournalDataSync() {
         setAiAnalyses(data.aiAnalyses);
         setWithdrawals([]);
       })
-      .catch(() => undefined);
+      .catch((caughtError) => {
+        logTechnicalError(caughtError, { action: "sync journal data", source: "database" });
+      });
 
     return () => {
       isCancelled = true;

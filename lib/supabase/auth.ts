@@ -1,4 +1,5 @@
 import { initializeUserAccount } from "@/lib/supabase/database";
+import { createFriendlyError } from "@/lib/errors/app-error";
 import {
   requireSupabaseBrowserClient,
   resetPassword,
@@ -41,7 +42,7 @@ export async function loginWithGoogle() {
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw createFriendlyError(error, { action: "google login", source: "auth" });
   }
 
   return data;

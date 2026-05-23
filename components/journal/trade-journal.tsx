@@ -6,6 +6,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { listTrades, listUserDocuments } from "@/lib/supabase";
 import { applyFilterPresetToTradeFilters } from "@/lib/filters/filter-presets";
 import {
@@ -46,11 +47,14 @@ export function TradeJournal() {
           setTrades(recalculateTradesInSequence(remoteTrades, settings.initialBalance));
         }
       })
-      .catch(() => undefined);
+      .catch((caughtError) => {
+        logTechnicalError(caughtError, { action: "load trades", source: "database" });
+        setMessage("Trades could not be loaded from Supabase.");
+      });
 
     listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
-      .catch(() => undefined);
+      .catch((caughtError) => logTechnicalError(caughtError, { action: "load filter presets", source: "database" }));
   }, [settings.initialBalance, setFilterPresets, setTrades, user]);
 
   const filteredTrades = useMemo(
@@ -89,8 +93,9 @@ export function TradeJournal() {
       try {
         const remoteTrades = await deleteTrade(user.id, tradeToDelete.id, settings.initialBalance);
         setTrades(remoteTrades);
-      } catch {
-        setMessage("Trade deleted locally. Supabase could not sync the change.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "delete trade", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Trade deleted locally. Supabase could not sync the change."));
       }
     }
   }

@@ -1,4 +1,5 @@
 import type { PostgrestError } from "@supabase/supabase-js";
+import { createFriendlyError } from "@/lib/errors/app-error";
 import { requireSupabaseClient } from "@/lib/supabase/config";
 import { DEFAULT_SETTINGS } from "@/store/default-state";
 import {
@@ -177,7 +178,7 @@ export async function deleteUserDocuments(
 }
 
 function throwPostgrestError(error: PostgrestError): never {
-  throw new Error(error.message || "Supabase database request failed.");
+  throw createFriendlyError(error, { source: "database" });
 }
 
 function mapRowByCollection(collectionName: UserCollection, row: Record<string, unknown>) {

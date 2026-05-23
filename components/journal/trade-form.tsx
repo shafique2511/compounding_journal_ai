@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteStorageFile, uploadTradeScreenshot } from "@/lib/supabase";
 import {
   calculateChecklistScore,
@@ -191,8 +192,9 @@ export function TradeForm({ trade }: TradeFormProps) {
     if (user) {
       try {
         await recalculateTradesAfterChange(user.id, recalculatedTrades, settings.initialBalance);
-      } catch {
-        setMessage("Trade saved locally. Supabase could not sync the latest balances.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "sync trade balances", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Trade saved locally. Supabase could not sync the latest balances."));
         return;
       }
     }
@@ -218,7 +220,8 @@ export function TradeForm({ trade }: TradeFormProps) {
         shouldDirty: true,
       });
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Screenshot upload failed.");
+      logTechnicalError(caughtError, { action: "upload trade screenshot", source: "storage" });
+      setError(getFriendlyErrorMessage(caughtError, "Screenshot upload failed. Check storage permissions and try again."));
     }
   }
 

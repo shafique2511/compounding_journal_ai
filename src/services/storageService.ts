@@ -1,4 +1,5 @@
 import { STORAGE_BUCKETS, requireSupabaseClient } from "@/lib/supabase/config";
+import { createFriendlyError } from "@/lib/errors/app-error";
 import {
   deleteStorageFile,
   uploadStrategyScreenshot as uploadStrategyImage,
@@ -35,7 +36,7 @@ export async function createSignedUrl(bucket: string, path: string, expiresIn = 
     .createSignedUrl(path, expiresIn);
 
   if (error) {
-    throw new Error(error.message);
+    throw createFriendlyError(error, { action: "create signed URL", source: "storage" });
   }
 
   return data.signedUrl;

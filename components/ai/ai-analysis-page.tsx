@@ -5,6 +5,7 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import {
   buildAiInputSummary,
   filterTradesForAi,
@@ -109,7 +110,8 @@ export function AiAnalysisPage() {
       setLastSummary(summary);
       setMessage(settings.saveAiAnalysisHistory ? "Analysis complete. History saved." : "Analysis complete.");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "AI analysis failed.");
+      logTechnicalError(caughtError, { action: "run AI analysis", source: "ai" });
+      setError(getFriendlyErrorMessage(caughtError, "AI analysis failed. Check your provider settings and try again."));
     } finally {
       setIsAnalyzing(false);
     }
@@ -142,6 +144,7 @@ export function AiAnalysisPage() {
       setError("");
       setMessage("AI analysis saved.");
     } catch {
+      logTechnicalError("AI history save failed.", { action: "save AI analysis", source: "database" });
       setError("AI analysis could not be saved. Check Supabase permissions and try again.");
     }
   }

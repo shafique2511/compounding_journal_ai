@@ -1,3 +1,4 @@
+import { createFriendlyError } from "@/lib/errors/app-error";
 import { STORAGE_BUCKETS, requireSupabaseClient } from "@/lib/supabase/config";
 import type { ScreenshotSlot } from "@/types";
 
@@ -35,7 +36,7 @@ export async function deleteStorageFile(pathOrUrl: string) {
     .remove([storageRef.path]);
 
   if (error) {
-    throw new Error(error.message);
+    throw createFriendlyError(error, { action: "delete storage file", source: "storage" });
   }
 }
 
@@ -48,7 +49,7 @@ async function uploadFile(bucket: string, path: string, file: File) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw createFriendlyError(error, { action: "upload storage file", source: "storage" });
   }
 
   const { data, error: signedUrlError } = await supabase.storage
@@ -56,7 +57,7 @@ async function uploadFile(bucket: string, path: string, file: File) {
     .createSignedUrl(path, signedUrlTtlSeconds);
 
   if (signedUrlError) {
-    throw new Error(signedUrlError.message);
+    throw createFriendlyError(signedUrlError, { action: "create signed URL", source: "storage" });
   }
 
   return data.signedUrl;

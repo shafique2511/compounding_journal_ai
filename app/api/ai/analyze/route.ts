@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildAiInputSummary, buildAiPrompt, filterTradesForAi } from "@/lib/ai/analysis";
+import { createFriendlyError, getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import {
   aiAnalysisToInsert,
   settingsFromRow,
@@ -77,14 +78,17 @@ export async function POST(request: Request) {
     ]);
 
     if (tradesResult.error) {
+      logTechnicalError(tradesResult.error, { action: "load trades for AI", source: "database" });
       return NextResponse.json({ error: "Could not load trades for AI analysis." }, { status: 500 });
     }
 
     if (settingsResult.error) {
+      logTechnicalError(settingsResult.error, { action: "load settings for AI", source: "database" });
       return NextResponse.json({ error: "Could not load settings for AI analysis." }, { status: 500 });
     }
 
     if (strategiesResult.error) {
+      logTechnicalError(strategiesResult.error, { action: "load strategies for AI", source: "database" });
       return NextResponse.json({ error: "Could not load strategies for AI analysis." }, { status: 500 });
     }
 
@@ -139,6 +143,7 @@ export async function POST(request: Request) {
         .insert(aiAnalysisToInsert(analysisDocument, user.id));
 
       if (saveError) {
+        logTechnicalError(saveError, { action: "save AI analysis", source: "database" });
         return NextResponse.json(
           { error: "AI analysis completed, but history could not be saved." },
           { status: 500 },
@@ -153,8 +158,9 @@ export async function POST(request: Request) {
       provider,
     });
   } catch (error) {
+    logTechnicalError(error, { action: "run AI analysis", source: "ai" });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI analysis failed." },
+      { error: getFriendlyErrorMessage(error, "AI analysis failed. Check your provider settings and try again.") },
       { status: 500 },
     );
   }
@@ -164,7 +170,7 @@ async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    throw new Error("OpenAI API key is not configured.");
+    throw createFriendlyError("Missing OpenAI API key.", { action: "openai api key", source: "ai" });
   }
 
   const model = requestedModel || process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -185,7 +191,10 @@ async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
   });
 
   if (!response.ok) {
-    throw new Error("OpenAI analysis failed.");
+    throw createFriendlyError(`OpenAI request failed with status ${response.status}.`, {
+      action: "openai request",
+      source: "ai",
+    });
   }
 
   const data = (await response.json()) as {
@@ -202,7 +211,7 @@ async function analyzeWithGemini(prompt: string, requestedModel?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    throw new Error("Gemini API key is not configured.");
+    throw createFriendlyError("Missing Gemini API key.", { action: "gemini api key", source: "ai" });
   }
 
   const model = requestedModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
@@ -227,7 +236,10 @@ async function analyzeWithGemini(prompt: string, requestedModel?: string) {
   );
 
   if (!response.ok) {
-    throw new Error("Gemini analysis failed.");
+    throw createFriendlyError(`Gemini request failed with status ${response.status}.`, {
+      action: "gemini request",
+      source: "ai",
+    });
   }
 
   const data = (await response.json()) as {

@@ -6,6 +6,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteUserDocument, listUserDocuments, saveFilterPreset } from "@/lib/supabase";
 import { filterTradesByPreset } from "@/lib/filters/filter-presets";
 import { getCurrentTimestamp } from "@/lib/time/timestamp";
@@ -55,7 +56,7 @@ export function FilterPresetsPage() {
 
     listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
-      .catch(() => undefined);
+      .catch((caughtError) => logTechnicalError(caughtError, { action: "load filter presets", source: "database" }));
   }, [setFilterPresets, user]);
 
   const selectedPreset = filterPresets.find((preset) => preset.id === selectedPresetId);
@@ -98,8 +99,9 @@ export function FilterPresetsPage() {
     if (user) {
       try {
         await saveFilterPreset(user.id, preset);
-      } catch {
-        setMessage("Filter preset saved locally. Supabase is not available.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "save filter preset", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Filter preset saved locally. Supabase could not sync it."));
       }
     }
   }
@@ -114,8 +116,9 @@ export function FilterPresetsPage() {
     if (user) {
       try {
         await deleteUserDocument(user.id, "filterPresets", preset.id);
-      } catch {
-        setMessage("Filter preset deleted locally. Supabase is not available.");
+      } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "delete filter preset", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Filter preset deleted locally. Supabase could not sync it."));
       }
     }
   }

@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
 import { calculateCumulativeProfit, calculateLossRate, calculateMaxDrawdown, calculateWinRate } from "@/lib/calculations";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { deleteUserDocuments, saveFilterPreset, saveStrategy, saveUserSettings } from "@/lib/supabase";
 import { settingsSchema } from "@/lib/validation";
 import { formatTimezoneOffset, getBrowserTimezoneOffsetMinutes } from "@/lib/time/local-time";
@@ -80,9 +81,15 @@ export function SettingsPanel() {
     setMessage("Settings saved.");
 
     if (user) {
-      await saveUserSettings(user.id, nextSettings).catch(() => undefined);
+      await saveUserSettings(user.id, nextSettings).catch((caughtError) => {
+        logTechnicalError(caughtError, { action: "save settings", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "Settings saved locally. Supabase could not sync settings."));
+      });
       if (recalculatedTrades !== trades) {
-        await recalculateTradesAfterChange(user.id, recalculatedTrades, nextSettings.initialBalance).catch(() => undefined);
+        await recalculateTradesAfterChange(user.id, recalculatedTrades, nextSettings.initialBalance).catch((caughtError) => {
+          logTechnicalError(caughtError, { action: "sync recalculated trades", source: "database" });
+          setMessage(getFriendlyErrorMessage(caughtError, "Settings saved locally. Supabase could not sync recalculated trades."));
+        });
       }
     }
   }
@@ -137,7 +144,8 @@ export function SettingsPanel() {
     try {
       action();
       setMessage(successMessage);
-    } catch {
+    } catch (caughtError) {
+      logTechnicalError(caughtError, { action: "data export", source: "export" });
       setMessage("Data action failed. Check browser download permissions and try again.");
     }
   }
@@ -173,8 +181,9 @@ export function SettingsPanel() {
       }
 
       setMessage("Backup restored. Balances were recalculated.");
-    } catch {
-      setMessage("Backup file is invalid.");
+    } catch (caughtError) {
+      logTechnicalError(caughtError, { action: "restore settings backup", source: "backup" });
+      setMessage(getFriendlyErrorMessage(caughtError, "Backup file is invalid."));
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -199,8 +208,9 @@ export function SettingsPanel() {
     try {
       await deleteAllRemoteTrades(user.id);
       setMessage("All trades deleted.");
-    } catch {
-        setMessage("All trades deleted locally. Supabase could not sync the change.");
+    } catch (caughtError) {
+        logTechnicalError(caughtError, { action: "delete all trades", source: "database" });
+        setMessage(getFriendlyErrorMessage(caughtError, "All trades deleted locally. Supabase could not sync the change."));
     }
   }
 

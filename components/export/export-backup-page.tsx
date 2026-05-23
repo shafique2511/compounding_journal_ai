@@ -5,6 +5,7 @@ import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
+import { getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
 import { parseBackup } from "@/lib/backup";
 import {
   downloadFile,
@@ -74,7 +75,10 @@ export function ExportBackupPage() {
         setStrategies(remoteData.strategies);
         setFilterPresets(remoteData.filterPresets);
       })
-      .catch(() => setMessage("Supabase export data could not be loaded."));
+      .catch((caughtError) => {
+        logTechnicalError(caughtError, { action: "load export data", source: "database" });
+        setMessage("Supabase export data could not be loaded.");
+      });
   }, [setAiAnalyses, setFilterPresets, setSettings, setStrategies, setTrades, user]);
 
   const filteredTrades = useMemo(() => filterTrades(trades, filters), [filters, trades]);
@@ -162,7 +166,8 @@ export function ExportBackupPage() {
       await action();
       setMessage(successMessage);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Export or backup failed. Check permissions and try again.");
+      logTechnicalError(error, { action: "export or backup", source: "export" });
+      setMessage(getFriendlyErrorMessage(error, "Export or backup failed. Check permissions and try again."));
     } finally {
       setIsWorking(false);
     }
@@ -178,8 +183,9 @@ export function ExportBackupPage() {
       setPendingBackup(parsedBackup);
       setMessage("Backup validated. Confirm restore to replace local data.");
     } catch (error) {
+      logTechnicalError(error, { action: "parse backup", source: "backup" });
       setPendingBackup(null);
-      setMessage(error instanceof Error ? error.message : "Backup file is invalid.");
+      setMessage(getFriendlyErrorMessage(error, "Backup file is invalid."));
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -210,7 +216,8 @@ export function ExportBackupPage() {
       setPendingBackup(null);
       setMessage("Backup restored. Balances, checklist scores, trade quality scores, and dashboard data were recalculated.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Restore failed. No invalid backup data was restored.");
+      logTechnicalError(error, { action: "restore backup", source: "backup" });
+      setMessage(getFriendlyErrorMessage(error, "Restore failed. No invalid backup data was restored."));
     } finally {
       setIsWorking(false);
     }
