@@ -20,6 +20,7 @@ export {
 } from "@/lib/supabase/auth";
 export {
   deleteUserDocument,
+  deleteUserDocuments,
   initializeUserAccount,
   listTrades,
   listUserDocuments,

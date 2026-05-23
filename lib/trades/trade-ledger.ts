@@ -187,27 +187,51 @@ export function recalculateTradesInSequence(trades: Trade[], initialBalance: num
   let runningBalance = toNumber(initialBalance);
 
   return sortTradesByTimestamp(trades).map((trade, index) => {
+    const netProfitLoss = calculateNetProfitLoss(
+      trade.grossProfitLoss,
+      trade.commission,
+      trade.swap,
+    );
     const startingBalance = runningBalance;
     const endingBalance = calculateEndingBalance(
       startingBalance,
-      trade.netProfitLoss,
+      netProfitLoss,
       trade.withdrawalAmount,
     );
-    const growthPercent = calculateGrowthPercent(trade.netProfitLoss, startingBalance);
+    const growthPercent = calculateGrowthPercent(netProfitLoss, startingBalance);
+    const riskRewardRatio = calculateRiskRewardRatio(
+      trade.direction,
+      trade.entryPrice,
+      trade.stopLoss,
+      trade.takeProfit,
+    );
+    const rMultiple = calculateRMultiple(netProfitLoss, trade.riskAmount);
+    const checklistScore = calculateChecklistScore(trade);
+    const checklistStatus = calculateChecklistStatus(checklistScore);
     const tradeQualityScore = calculateTradeQualityScore({
       ...trade,
+      checklistScore,
+      checklistStatus,
+      netProfitLoss,
       startingBalance,
       endingBalance,
       growthPercent,
+      riskRewardRatio,
+      rMultiple,
     });
     runningBalance = endingBalance;
 
     return {
       ...trade,
       tradeNumber: index + 1,
+      netProfitLoss,
       startingBalance,
       endingBalance,
       growthPercent,
+      riskRewardRatio,
+      rMultiple,
+      checklistScore,
+      checklistStatus,
       tradeQualityScore,
       tradeQualityGrade: calculateTradeQualityGrade(tradeQualityScore),
       updatedAt: Date.now(),
@@ -319,5 +343,6 @@ function sortTradesByTimestamp(trades: Trade[]) {
 }
 
 function toNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  const parsedValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
 }

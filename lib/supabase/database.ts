@@ -138,6 +138,20 @@ export async function deleteUserDocument(
   }
 }
 
+export async function deleteUserDocuments(
+  userId: string,
+  collectionName: Exclude<UserCollection, "settings">,
+) {
+  const { error } = await requireSupabaseClient()
+    .from(tableMap[collectionName])
+    .delete()
+    .eq("user_id", userId);
+
+  if (error) {
+    throwPostgrestError(error);
+  }
+}
+
 async function upsertRow(
   collectionName: UserCollection,
   data: Record<string, unknown>,

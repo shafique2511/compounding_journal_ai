@@ -1,17 +1,48 @@
-import { deleteUserDocument, listTrades, saveTrade } from "@/lib/supabase";
+import { deleteUserDocument, deleteUserDocuments, listTrades, saveTrade } from "@/lib/supabase";
 import { recalculateTradesInSequence } from "@/lib/trades/trade-ledger";
 import type { Trade } from "@/types";
 
-export function createTrade(userId: string, trade: Trade) {
-  return saveTrade(userId, trade);
+export async function createTrade(userId: string, trade: Trade, initialBalance?: number) {
+  if (initialBalance === undefined) {
+    await saveTrade(userId, trade);
+    return trade;
+  }
+
+  const existingTrades = await getAllTrades(userId);
+  const recalculatedTrades = await recalculateTradesAfterChange(
+    userId,
+    [...existingTrades.filter((item) => item.id !== trade.id), trade],
+    initialBalance,
+  );
+
+  return recalculatedTrades.find((item) => item.id === trade.id) ?? trade;
 }
 
-export function updateTrade(userId: string, trade: Trade) {
-  return saveTrade(userId, trade);
+export async function updateTrade(userId: string, trade: Trade, initialBalance?: number) {
+  if (initialBalance === undefined) {
+    await saveTrade(userId, trade);
+    return trade;
+  }
+
+  const existingTrades = await getAllTrades(userId);
+  const recalculatedTrades = await recalculateTradesAfterChange(
+    userId,
+    existingTrades.map((item) => (item.id === trade.id ? trade : item)),
+    initialBalance,
+  );
+
+  return recalculatedTrades.find((item) => item.id === trade.id) ?? trade;
 }
 
-export function deleteTrade(userId: string, tradeId: string) {
-  return deleteUserDocument(userId, "trades", tradeId);
+export async function deleteTrade(userId: string, tradeId: string, initialBalance?: number) {
+  await deleteUserDocument(userId, "trades", tradeId);
+
+  if (initialBalance === undefined) {
+    return [];
+  }
+
+  const remainingTrades = (await getAllTrades(userId)).filter((trade) => trade.id !== tradeId);
+  return recalculateTradesAfterChange(userId, remainingTrades, initialBalance);
 }
 
 export async function getTradeById(userId: string, tradeId: string) {
@@ -64,8 +95,7 @@ export async function getTradesByMistakeTag(userId: string, mistakeTag: string) 
 }
 
 export async function deleteAllTrades(userId: string) {
-  const trades = await getAllTrades(userId);
-  await Promise.all(trades.map((trade) => deleteTrade(userId, trade.id)));
+  await deleteUserDocuments(userId, "trades");
 }
 
 export async function recalculateTradesAfterChange(

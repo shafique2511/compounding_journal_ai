@@ -6,7 +6,7 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteUserDocument, listTrades, listUserDocuments, saveTrade } from "@/lib/supabase";
+import { listTrades, listUserDocuments } from "@/lib/supabase";
 import { applyFilterPresetToTradeFilters } from "@/lib/filters/filter-presets";
 import {
   EMPTY_TRADE_FILTERS,
@@ -16,6 +16,7 @@ import {
   type TradeFilters,
   type TradeSort,
 } from "@/lib/trades/trade-ledger";
+import { deleteTrade } from "@/src/services/tradeService";
 import { useJournalStore } from "@/store";
 import type { FilterPreset, Trade } from "@/types";
 import { cn } from "@/lib/utils";
@@ -86,8 +87,8 @@ export function TradeJournal() {
 
     if (user) {
       try {
-        await deleteUserDocument(user.id, "trades", tradeToDelete.id);
-        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.id, trade)));
+        const remoteTrades = await deleteTrade(user.id, tradeToDelete.id, settings.initialBalance);
+        setTrades(remoteTrades);
       } catch {
         setMessage("Trade deleted locally. Supabase could not sync the change.");
       }

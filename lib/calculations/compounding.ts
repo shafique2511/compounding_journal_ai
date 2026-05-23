@@ -145,7 +145,8 @@ function sortTrades(trades: Partial<Trade>[]) {
 }
 
 function toNumber(value: unknown, fallback = 0) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const parsedValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
 function roundMoney(value: number) {

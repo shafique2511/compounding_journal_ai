@@ -1,4 +1,4 @@
-import type { AppSettings, Trade, TradeQualityGrade } from "@/types";
+import type { AppSettings, ChecklistStatus, Trade, TradeQualityGrade } from "@/types";
 
 type Checklist = Record<string, unknown>;
 
@@ -51,7 +51,7 @@ export function calculateChecklistScore(checklist: Checklist = {}) {
   return roundPercent((checkedItems / checklistKeys.length) * 100);
 }
 
-export function calculateChecklistStatus(score: unknown) {
+export function calculateChecklistStatus(score: unknown): ChecklistStatus {
   return toNumber(score) >= 80 ? "Plan Passed" : "Plan Warning";
 }
 
@@ -296,7 +296,8 @@ function sortTrades(trades: Partial<Trade>[]) {
 }
 
 function toNumber(value: unknown, fallback = 0) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const parsedValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
 function clamp(value: number, minimum: number, maximum: number) {

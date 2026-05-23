@@ -16,8 +16,9 @@ import {
   exportStrategiesToCsv,
   exportTradesToCsv,
 } from "@/lib/export";
-import { listUserDocuments, saveAiAnalysis, saveFilterPreset, saveStrategy, saveTrade, saveUserSettings } from "@/lib/supabase";
+import { deleteUserDocuments, listUserDocuments, saveAiAnalysis, saveFilterPreset, saveStrategy, saveUserSettings } from "@/lib/supabase";
 import { filterTrades, type TradeFilters } from "@/lib/trades/trade-ledger";
+import { recalculateTradesAfterChange } from "@/src/services/tradeService";
 import { useJournalStore } from "@/store";
 import type { AiAnalysis, FilterPreset, Strategy } from "@/types";
 
@@ -167,8 +168,15 @@ export function ExportBackupPage() {
 
     if (user) {
       await Promise.all([
+        deleteUserDocuments(user.id, "trades"),
+        deleteUserDocuments(user.id, "aiAnalyses"),
+        deleteUserDocuments(user.id, "strategies"),
+        deleteUserDocuments(user.id, "filterPresets"),
+      ]).catch(() => undefined);
+
+      await Promise.all([
         saveUserSettings(user.id, pendingBackup.settings),
-        ...pendingBackup.trades.map((trade) => saveTrade(user.id, trade)),
+        recalculateTradesAfterChange(user.id, pendingBackup.trades, pendingBackup.settings.initialBalance),
         ...pendingBackup.aiAnalyses.map((analysis) => saveAiAnalysis(user.id, analysis)),
         ...pendingBackup.strategies.map((strategy) => saveStrategy(user.id, strategy)),
         ...pendingBackup.filterPresets.map((preset) => saveFilterPreset(user.id, preset)),

@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { deleteStorageFile, saveTrade, uploadTradeScreenshot } from "@/lib/supabase";
+import { deleteStorageFile, uploadTradeScreenshot } from "@/lib/supabase";
 import {
   calculateChecklistScore,
   calculateChecklistStatus,
@@ -28,6 +28,7 @@ import {
   recalculateTradesInSequence,
   type TradeFormValues,
 } from "@/lib/trades/trade-ledger";
+import { recalculateTradesAfterChange } from "@/src/services/tradeService";
 import { useJournalStore } from "@/store";
 import type { ScreenshotSlot, Trade } from "@/types";
 import { cn } from "@/lib/utils";
@@ -189,7 +190,7 @@ export function TradeForm({ trade }: TradeFormProps) {
 
     if (user) {
       try {
-        await Promise.all(recalculatedTrades.map((item) => saveTrade(user.id, item)));
+        await recalculateTradesAfterChange(user.id, recalculatedTrades, settings.initialBalance);
       } catch {
         setMessage("Trade saved locally. Supabase could not sync the latest balances.");
         return;

@@ -7,10 +7,11 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
 import { calculateCumulativeProfit, calculateLossRate, calculateMaxDrawdown, calculateWinRate } from "@/lib/calculations";
-import { saveTrade, saveUserSettings } from "@/lib/supabase";
+import { deleteUserDocuments, saveFilterPreset, saveStrategy, saveUserSettings } from "@/lib/supabase";
 import { settingsSchema } from "@/lib/validation";
 import { formatTimezoneOffset, getBrowserTimezoneOffsetMinutes } from "@/lib/time/local-time";
 import { recalculateTradesInSequence } from "@/lib/trades/trade-ledger";
+import { deleteAllTrades as deleteAllRemoteTrades, recalculateTradesAfterChange } from "@/src/services/tradeService";
 import { DEFAULT_SETTINGS } from "@/store";
 import { useJournalStore } from "@/store";
 import type { AppSettings, FilterPreset, Strategy, Trade, Withdrawal } from "@/types";
@@ -81,7 +82,7 @@ export function SettingsPanel() {
     if (user) {
       await saveUserSettings(user.id, nextSettings).catch(() => undefined);
       if (recalculatedTrades !== trades) {
-        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.id, trade))).catch(() => undefined);
+        await recalculateTradesAfterChange(user.id, recalculatedTrades, nextSettings.initialBalance).catch(() => undefined);
       }
     }
   }
@@ -149,13 +150,29 @@ export function SettingsPanel() {
     try {
       const payload = JSON.parse(await file.text()) as BackupPayload;
       const restoredSettings = settingsSchema.parse({ ...DEFAULT_SETTINGS, ...payload.settings });
+      const restoredTrades = recalculateTradesInSequence(payload.trades ?? [], restoredSettings.initialBalance);
       setSettings(restoredSettings);
       setDraft(restoredSettings);
-      setTrades(payload.trades ?? []);
+      setTrades(restoredTrades);
       setStrategies(payload.strategies ?? []);
       setWithdrawals(payload.withdrawals ?? []);
       setFilterPresets(payload.filterPresets ?? []);
-      setMessage("Backup restored.");
+
+      if (user) {
+        await Promise.all([
+          deleteUserDocuments(user.id, "trades"),
+          deleteUserDocuments(user.id, "strategies"),
+          deleteUserDocuments(user.id, "filterPresets"),
+        ]);
+        await saveUserSettings(user.id, restoredSettings);
+        await Promise.all([
+          recalculateTradesAfterChange(user.id, restoredTrades, restoredSettings.initialBalance),
+          ...(payload.strategies ?? []).map((strategy) => saveStrategy(user.id, strategy)),
+          ...(payload.filterPresets ?? []).map((preset) => saveFilterPreset(user.id, preset)),
+        ]);
+      }
+
+      setMessage("Backup restored. Balances were recalculated.");
     } catch {
       setMessage("Backup file is invalid.");
     } finally {
@@ -165,7 +182,7 @@ export function SettingsPanel() {
     }
   }
 
-  function deleteAllTrades() {
+  async function deleteAllTrades() {
     if (deleteConfirm !== "DELETE") {
       setMessage("Type DELETE to confirm deleting all trades.");
       return;
@@ -173,7 +190,18 @@ export function SettingsPanel() {
 
     setTrades([]);
     setDeleteConfirm("");
-    setMessage("All trades deleted locally.");
+
+    if (!user) {
+      setMessage("All trades deleted.");
+      return;
+    }
+
+    try {
+      await deleteAllRemoteTrades(user.id);
+      setMessage("All trades deleted.");
+    } catch {
+        setMessage("All trades deleted locally. Supabase could not sync the change.");
+    }
   }
 
   return (
