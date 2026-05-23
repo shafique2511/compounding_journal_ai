@@ -36,6 +36,7 @@ export function readJournalState(): JournalState {
       trades: parsedValue.trades ?? [],
       withdrawals: parsedValue.withdrawals ?? [],
       strategies: parsedValue.strategies ?? [],
+      filterPresets: parsedValue.filterPresets ?? [],
     };
     return cachedState;
   } catch {

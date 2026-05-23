@@ -143,6 +143,7 @@ export type AppSettings = {
   timezoneOffset: string;
   dateFormat: DateFormat;
   timeFormat: TimeFormat;
+  autoTradeNumber: boolean;
   defaultTimeframe: string;
   defaultSymbol: string;
   defaultCommission: number;
@@ -167,4 +168,5 @@ export type JournalState = {
   trades: Trade[];
   withdrawals: Withdrawal[];
   strategies: Strategy[];
+  filterPresets: FilterPreset[];
 };

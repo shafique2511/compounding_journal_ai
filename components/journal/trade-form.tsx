@@ -11,13 +11,16 @@ import { deleteStorageFile, saveTrade, uploadTradeScreenshot } from "@/lib/fireb
 import {
   calculateChecklistScore,
   calculateChecklistStatus,
+  calculateDailyLossUsed,
   calculateEndingBalance,
   calculateGrowthPercent,
   calculateNetProfitLoss,
   calculateRMultiple,
   calculateRiskRewardRatio,
+  calculateStreaks,
   calculateTradeQualityGrade,
   calculateTradeQualityScore,
+  calculateWeeklyLossUsed,
 } from "@/lib/calculations";
 import {
   createTradeFromForm,
@@ -143,6 +146,10 @@ export function TradeForm({ trade }: TradeFormProps) {
       tradeQualityScore,
     };
   }, [values]);
+  const riskWarnings = useMemo(
+    () => buildRiskWarnings(values, calculations.riskRewardRatio, settings, trades, trade?.id),
+    [calculations.riskRewardRatio, settings, trade?.id, trades, values],
+  );
 
   async function handleSubmit(valuesToSubmit: TradeFormInput) {
     setError("");
@@ -221,6 +228,14 @@ export function TradeForm({ trade }: TradeFormProps) {
     <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
       <FormHeader title={trade ? "Edit Trade" : "Add Trade"} />
       {error ? <p className="rounded-md border border-loss/30 bg-loss/10 p-3 text-sm text-loss">{error}</p> : null}
+      {riskWarnings.length > 0 ? (
+        <div className="rounded-md border border-withdrawal/30 bg-withdrawal/10 p-3 text-sm text-withdrawal">
+          <p className="font-medium">Risk warning</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {riskWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+          </ul>
+        </div>
+      ) : null}
 
       <Section title="1. Trade Info">
         <Input label="Symbol" {...form.register("symbol")} />
@@ -416,6 +431,70 @@ function validate(values: TradeFormInput) {
   }
 
   return "";
+}
+
+function buildRiskWarnings(
+  values: Partial<TradeFormInput>,
+  riskRewardRatio: number,
+  settings: { enableRiskWarning: boolean; maxDailyLossPercent: number; maxLosingStreakWarning: number; maxRiskPerTradePercent: number; maxTradesPerDay: number; maxWeeklyLossPercent: number; minimumRiskRewardRatio: number },
+  trades: Trade[],
+  currentTradeId?: string,
+) {
+  if (!settings.enableRiskWarning) {
+    return [];
+  }
+
+  const warnings: string[] = [];
+  const startingBalance = toNumber(values.startingBalance);
+  const riskAmount = toNumber(values.riskAmount);
+  const riskPercent = startingBalance > 0 ? (riskAmount / startingBalance) * 100 : 0;
+  const sameDayTrades = trades.filter((trade) => trade.id !== currentTradeId && trade.date === values.date);
+  const dailyLossLimit = (startingBalance * settings.maxDailyLossPercent) / 100;
+  const dailyLossUsed = calculateDailyLossUsed(sameDayTrades, values.date);
+  const weekStart = startOfWeekTimestamp(String(values.date || ""));
+  const weeklyLossLimit = (startingBalance * settings.maxWeeklyLossPercent) / 100;
+  const weeklyLossUsed = calculateWeeklyLossUsed(
+    trades.filter((trade) => trade.id !== currentTradeId),
+    weekStart,
+  );
+  const streaks = calculateStreaks(trades.filter((trade) => trade.id !== currentTradeId));
+
+  if (settings.maxRiskPerTradePercent > 0 && riskPercent > settings.maxRiskPerTradePercent) {
+    warnings.push("Risk amount is above the allowed risk percentage.");
+  }
+
+  if (settings.minimumRiskRewardRatio > 0 && riskRewardRatio < settings.minimumRiskRewardRatio) {
+    warnings.push("Minimum risk reward ratio is not met.");
+  }
+
+  if (settings.maxTradesPerDay > 0 && sameDayTrades.length >= settings.maxTradesPerDay) {
+    warnings.push("Maximum trades per day is reached.");
+  }
+
+  if (
+    settings.maxLosingStreakWarning > 0 &&
+    streaks.currentLossStreak >= settings.maxLosingStreakWarning
+  ) {
+    warnings.push("Losing streak warning limit is reached.");
+  }
+
+  if (settings.maxDailyLossPercent > 0 && dailyLossUsed >= dailyLossLimit && dailyLossLimit > 0) {
+    warnings.push("Daily loss limit is reached.");
+  }
+
+  if (settings.maxWeeklyLossPercent > 0 && weeklyLossUsed >= weeklyLossLimit && weeklyLossLimit > 0) {
+    warnings.push("Weekly loss limit is reached.");
+  }
+
+  return warnings;
+}
+
+function startOfWeekTimestamp(dateValue: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(year || 1970, (month || 1) - 1, day || 1);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - date.getDay());
+  return date.getTime();
 }
 
 function FormHeader({ title }: { title: string }) {

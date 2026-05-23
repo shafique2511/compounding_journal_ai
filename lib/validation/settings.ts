@@ -6,6 +6,7 @@ export const settingsSchema = z.object({
   timezoneOffset: z.string().trim().min(3).max(16),
   dateFormat: z.enum(["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"]),
   timeFormat: z.enum(["12-hour", "24-hour"]),
+  autoTradeNumber: z.boolean(),
   defaultTimeframe: z.string().trim().min(1).max(12),
   defaultSymbol: z.string().trim().max(24).transform((value) => value.toUpperCase()),
   defaultCommission: z.coerce.number(),

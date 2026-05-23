@@ -1,59 +1,65 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BrainCircuit, Monitor, Moon, RotateCcw, Save, Sparkles, Sun } from "lucide-react";
+import { Download, Monitor, Moon, RotateCcw, Save, Sun, Trash2, Upload } from "lucide-react";
 import { useTheme } from "next-themes";
+import type React from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth";
+import { calculateCumulativeProfit, calculateLossRate, calculateMaxDrawdown, calculateWinRate } from "@/lib/calculations";
+import { saveTrade, saveUserSettings } from "@/lib/firebase";
 import { settingsSchema } from "@/lib/validation";
 import { formatTimezoneOffset, getBrowserTimezoneOffsetMinutes } from "@/lib/time/local-time";
-import { useAppSettings } from "@/hooks";
-import type { AppSettings } from "@/types";
+import { recalculateTradesInSequence } from "@/lib/trades/trade-ledger";
+import { DEFAULT_SETTINGS } from "@/store";
+import { useJournalStore } from "@/store";
+import type { AppSettings, FilterPreset, Strategy, Trade, Withdrawal } from "@/types";
 import { cn } from "@/lib/utils";
 
+const currencies = ["USD", "MYR", "EUR", "GBP", "JPY", "AUD", "Custom"];
+const dateFormats = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] as const;
+const timeFormats = ["12-hour", "24-hour"] as const;
+const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"];
 const themeOptions = [
-  { value: "light" as const, label: "Light", icon: Sun },
-  { value: "dark" as const, label: "Dark", icon: Moon },
-  { value: "system" as const, label: "System", icon: Monitor },
+  { value: "light" as const, label: "Light mode", icon: Sun },
+  { value: "dark" as const, label: "Dark mode", icon: Moon },
+  { value: "system" as const, label: "System default", icon: Monitor },
+];
+const aiProviderOptions = [
+  { value: "gemini" as const, label: "Gemini" },
+  { value: "openai" as const, label: "ChatGPT / OpenAI" },
 ];
 
-const aiProviderOptions = [
-  { value: "openai" as const, label: "OpenAI", icon: BrainCircuit },
-  { value: "gemini" as const, label: "Gemini", icon: Sparkles },
-];
+type BackupPayload = {
+  filterPresets?: FilterPreset[];
+  settings?: AppSettings;
+  strategies?: Strategy[];
+  trades?: Trade[];
+  withdrawals?: Withdrawal[];
+};
 
 export function SettingsPanel() {
-  const { isLoaded, settings, saveSettings } = useAppSettings();
-
-  if (!isLoaded) {
-    return (
-      <section className="rounded-lg border bg-card p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">Loading local settings...</p>
-      </section>
-    );
-  }
-
-  return (
-    <SettingsForm
-      initialSettings={settings}
-      key={`${settings.themeMode}-${settings.aiProvider}-${settings.timezoneOffset}-${settings.initialBalance}-${settings.currency}`}
-      onSave={saveSettings}
-    />
-  );
-}
-
-function SettingsForm({
-  initialSettings,
-  onSave,
-}: Readonly<{
-  initialSettings: AppSettings;
-  onSave: (settings: AppSettings) => void;
-}>) {
+  const { user } = useAuth();
   const { setTheme } = useTheme();
-  const [draft, setDraft] = useState<AppSettings>(() => initialSettings);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    filterPresets,
+    setFilterPresets,
+    setSettings,
+    setStrategies,
+    setTrades,
+    setWithdrawals,
+    settings,
+    strategies,
+    trades,
+    withdrawals,
+  } = useJournalStore();
+  const [draft, setDraft] = useState<AppSettings>(() => ({ ...DEFAULT_SETTINGS, ...settings }));
+  const [currencyMode, setCurrencyMode] = useState(currencies.includes(draft.currency) ? draft.currency : "Custom");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
   const [message, setMessage] = useState("");
-  const previewLabel = useMemo(() => draft.timezoneOffset, [draft.timezoneOffset]);
 
-  function handleSave() {
+  async function handleSave() {
     const parsedSettings = settingsSchema.safeParse(draft);
 
     if (!parsedSettings.success) {
@@ -61,9 +67,30 @@ function SettingsForm({
       return;
     }
 
-    onSave(parsedSettings.data);
-    setTheme(parsedSettings.data.themeMode);
-    setMessage("Settings saved on this device.");
+    const nextSettings = parsedSettings.data;
+    const recalculatedTrades =
+      nextSettings.initialBalance !== settings.initialBalance
+        ? recalculateTradesInSequence(trades, nextSettings.initialBalance)
+        : trades;
+
+    setSettings(nextSettings);
+    setTrades(recalculatedTrades);
+    setTheme(nextSettings.themeMode);
+    setMessage("Settings saved.");
+
+    if (user) {
+      await saveUserSettings(user.uid, nextSettings).catch(() => undefined);
+      if (recalculatedTrades !== trades) {
+        await Promise.all(recalculatedTrades.map((trade) => saveTrade(user.uid, trade))).catch(() => undefined);
+      }
+    }
+  }
+
+  function handleCurrencyChange(value: string) {
+    setCurrencyMode(value);
+    if (value !== "Custom") {
+      setDraft((current) => ({ ...current, currency: value }));
+    }
   }
 
   function handleUseBrowserOffset() {
@@ -74,82 +101,168 @@ function SettingsForm({
     setMessage("");
   }
 
+  function exportTradesCsv() {
+    downloadFile("trade-journal-trades.csv", toCsv(trades), "text/csv");
+    setMessage("Trades CSV exported.");
+  }
+
+  function exportDashboardCsv() {
+    const rows = [
+      ["Metric", "Value"],
+      ["Initial Balance", draft.initialBalance],
+      ["Current Balance", trades.at(-1)?.endingBalance ?? draft.initialBalance],
+      ["Total Net Profit", calculateCumulativeProfit(trades)],
+      ["Total Withdrawals", trades.reduce((total, trade) => total + safe(trade.withdrawalAmount), 0)],
+      ["Total Trades", trades.length],
+      ["Win Rate", calculateWinRate(trades)],
+      ["Loss Rate", calculateLossRate(trades)],
+      ["Maximum Drawdown", calculateMaxDrawdown(trades)],
+    ];
+    downloadFile("trade-journal-dashboard-summary.csv", rows.map((row) => row.join(",")).join("\n"), "text/csv");
+    setMessage("Dashboard summary CSV exported.");
+  }
+
+  function backupJson() {
+    downloadFile(
+      "trade-compounding-journal-backup.json",
+      JSON.stringify({ filterPresets, settings: draft, strategies, trades, withdrawals }, null, 2),
+      "application/json",
+    );
+    setMessage("Backup JSON exported.");
+  }
+
+  async function restoreJson(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const payload = JSON.parse(await file.text()) as BackupPayload;
+      const restoredSettings = settingsSchema.parse({ ...DEFAULT_SETTINGS, ...payload.settings });
+      setSettings(restoredSettings);
+      setDraft(restoredSettings);
+      setTrades(payload.trades ?? []);
+      setStrategies(payload.strategies ?? []);
+      setWithdrawals(payload.withdrawals ?? []);
+      setFilterPresets(payload.filterPresets ?? []);
+      setMessage("Backup restored.");
+    } catch {
+      setMessage("Backup file is invalid.");
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
+  function deleteAllTrades() {
+    if (deleteConfirm !== "DELETE") {
+      setMessage("Type DELETE to confirm deleting all trades.");
+      return;
+    }
+
+    setTrades([]);
+    setDeleteConfirm("");
+    setMessage("All trades deleted locally.");
+  }
+
   return (
-    <section className="space-y-6 rounded-lg border bg-card p-6 shadow-sm">
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">Local app preferences</p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight">Settings</h2>
+    <section className="space-y-6">
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Settings</p>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight">Trading Journal Settings</h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Trade entry times use the browser/device local date and time. The timezone offset below is
-          stored as a manual preference and can be adjusted when reviewing trades from another
-          timezone.
+          Configure account, local time handling, risk warnings, AI provider, appearance, and data tools.
         </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Starting balance</span>
-          <input
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-            min="0"
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                initialBalance: Number(event.target.value),
-              }))
-            }
-            type="number"
-            value={draft.initialBalance}
-          />
-        </label>
+      <SettingsSection title="1. Account Settings">
+        <NumberInput label="Initial Balance" min={0} onChange={(value) => setDraft({ ...draft, initialBalance: value })} value={draft.initialBalance} />
+        <Field label="Account Currency">
+          <select className={inputClass} onChange={(event) => handleCurrencyChange(event.target.value)} value={currencyMode}>
+            {currencies.map((currency) => <option key={currency}>{currency}</option>)}
+          </select>
+        </Field>
+        {currencyMode === "Custom" ? (
+          <Field label="Custom Currency">
+            <input className={inputClass} maxLength={8} onChange={(event) => setDraft({ ...draft, currency: event.target.value.toUpperCase() })} value={draft.currency} />
+          </Field>
+        ) : null}
+      </SettingsSection>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Account currency</span>
-          <input
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm uppercase outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-            maxLength={8}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, currency: event.target.value }))
-            }
-            value={draft.currency}
-          />
-        </label>
+      <SettingsSection title="2. Time Settings">
+        <Field label="Timezone offset">
+          <div className="flex gap-2">
+            <input className={inputClass} onChange={(event) => setDraft({ ...draft, timezoneOffset: event.target.value })} value={draft.timezoneOffset} />
+            <Button onClick={handleUseBrowserOffset} type="button" variant="secondary">
+              <RotateCcw aria-hidden="true" className="size-4" />
+              Browser
+            </Button>
+          </div>
+        </Field>
+        <Field label="Date format">
+          <select className={inputClass} onChange={(event) => setDraft({ ...draft, dateFormat: event.target.value as AppSettings["dateFormat"] })} value={draft.dateFormat}>
+            {dateFormats.map((format) => <option key={format}>{format}</option>)}
+          </select>
+        </Field>
+        <Field label="Time format">
+          <select className={inputClass} onChange={(event) => setDraft({ ...draft, timeFormat: event.target.value as AppSettings["timeFormat"] })} value={draft.timeFormat}>
+            {timeFormats.map((format) => <option key={format}>{format}</option>)}
+          </select>
+        </Field>
+      </SettingsSection>
 
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Manual timezone offset</span>
-          <input
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                timezoneOffset: event.target.value,
-              }))
-            }
-            value={draft.timezoneOffset}
-          />
-          <span className="block text-xs text-muted-foreground">{previewLabel}</span>
-        </label>
+      <SettingsSection title="3. Journal Settings">
+        <Toggle checked={draft.autoTradeNumber} label="Auto trade number" onChange={(value) => setDraft({ ...draft, autoTradeNumber: value })} />
+        <Field label="Default timeframe">
+          <select className={inputClass} onChange={(event) => setDraft({ ...draft, defaultTimeframe: event.target.value })} value={draft.defaultTimeframe}>
+            {timeframes.map((timeframe) => <option key={timeframe}>{timeframe}</option>)}
+          </select>
+        </Field>
+        <Field label="Default symbol">
+          <input className={inputClass} onChange={(event) => setDraft({ ...draft, defaultSymbol: event.target.value.toUpperCase() })} value={draft.defaultSymbol} />
+        </Field>
+        <NumberInput label="Default commission" onChange={(value) => setDraft({ ...draft, defaultCommission: value })} value={draft.defaultCommission} />
+        <NumberInput label="Default swap" onChange={(value) => setDraft({ ...draft, defaultSwap: value })} value={draft.defaultSwap} />
+      </SettingsSection>
 
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Theme</span>
+      <SettingsSection title="4. Risk Management Rules">
+        <NumberInput label="Maximum risk per trade %" min={0} onChange={(value) => setDraft({ ...draft, maxRiskPerTradePercent: value })} value={draft.maxRiskPerTradePercent} />
+        <NumberInput label="Maximum daily loss %" min={0} onChange={(value) => setDraft({ ...draft, maxDailyLossPercent: value })} value={draft.maxDailyLossPercent} />
+        <NumberInput label="Maximum weekly loss %" min={0} onChange={(value) => setDraft({ ...draft, maxWeeklyLossPercent: value })} value={draft.maxWeeklyLossPercent} />
+        <NumberInput label="Maximum trades per day" min={0} onChange={(value) => setDraft({ ...draft, maxTradesPerDay: value })} value={draft.maxTradesPerDay} />
+        <NumberInput label="Maximum losing streak warning" min={0} onChange={(value) => setDraft({ ...draft, maxLosingStreakWarning: value })} value={draft.maxLosingStreakWarning} />
+        <NumberInput label="Minimum risk reward ratio" min={0} onChange={(value) => setDraft({ ...draft, minimumRiskRewardRatio: value })} value={draft.minimumRiskRewardRatio} />
+        <Toggle checked={draft.enableRiskWarning} label="Enable risk warning" onChange={(value) => setDraft({ ...draft, enableRiskWarning: value })} />
+      </SettingsSection>
+
+      <SettingsSection title="5. AI Settings">
+        <Field label="AI provider">
+          <select className={inputClass} onChange={(event) => setDraft({ ...draft, aiProvider: event.target.value as AppSettings["aiProvider"] })} value={draft.aiProvider}>
+            {aiProviderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </Field>
+        <Field label="AI model">
+          <input className={inputClass} onChange={(event) => setDraft({ ...draft, aiModel: event.target.value })} value={draft.aiModel} />
+        </Field>
+        <Toggle checked={draft.enableScreenshotAnalysis} label="Enable screenshot analysis" onChange={(value) => setDraft({ ...draft, enableScreenshotAnalysis: value })} />
+        <Toggle checked={draft.saveAiAnalysisHistory} label="Save AI analysis history" onChange={(value) => setDraft({ ...draft, saveAiAnalysisHistory: value })} />
+      </SettingsSection>
+
+      <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <h3 className="text-lg font-semibold tracking-tight">6. Appearance</h3>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="grid grid-cols-3 gap-2">
             {themeOptions.map((option) => {
               const Icon = option.icon;
               const isSelected = draft.themeMode === option.value;
-
               return (
                 <button
-                  className={cn(
-                    "flex h-10 items-center justify-center gap-2 rounded-md border text-sm transition-colors",
-                    isSelected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "bg-background hover:bg-accent",
-                  )}
+                  className={cn("flex h-10 items-center justify-center gap-2 rounded-md border text-sm transition-colors", isSelected ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-accent")}
                   key={option.value}
                   onClick={() => {
-                    setDraft((current) => ({ ...current, themeMode: option.value }));
+                    setDraft({ ...draft, themeMode: option.value });
                     setTheme(option.value);
-                    setMessage("");
                   }}
                   type="button"
                 >
@@ -159,50 +272,108 @@ function SettingsForm({
               );
             })}
           </div>
+          <Field label="Accent color">
+            <input className={inputClass} onChange={(event) => setDraft({ ...draft, accentColor: event.target.value })} type="color" value={draft.accentColor} />
+          </Field>
         </div>
+      </section>
 
-        <div className="space-y-2">
-          <span className="text-sm font-medium">AI provider</span>
-          <div className="grid grid-cols-2 gap-2">
-            {aiProviderOptions.map((option) => {
-              const Icon = option.icon;
-              const isSelected = draft.aiProvider === option.value;
-
-              return (
-                <button
-                  className={cn(
-                    "flex h-10 items-center justify-center gap-2 rounded-md border text-sm transition-colors",
-                    isSelected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "bg-background hover:bg-accent",
-                  )}
-                  key={option.value}
-                  onClick={() => {
-                    setDraft((current) => ({ ...current, aiProvider: option.value }));
-                    setMessage("");
-                  }}
-                  type="button"
-                >
-                  <Icon aria-hidden="true" className="size-4" />
-                  {option.label}
-                </button>
-              );
-            })}
+      <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <h3 className="text-lg font-semibold tracking-tight">7. Data</h3>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button onClick={exportTradesCsv} type="button" variant="secondary"><Download className="size-4" />Export to CSV</Button>
+          <Button onClick={exportDashboardCsv} type="button" variant="secondary"><Download className="size-4" />Export Dashboard CSV</Button>
+          <Button onClick={backupJson} type="button" variant="secondary"><Download className="size-4" />Backup JSON</Button>
+          <Button onClick={() => fileInputRef.current?.click()} type="button" variant="secondary"><Upload className="size-4" />Restore JSON</Button>
+          <input ref={fileInputRef} className="hidden" accept="application/json" onChange={(event) => void restoreJson(event.target.files?.[0] ?? null)} type="file" />
+        </div>
+        <div className="mt-5 rounded-lg border bg-background p-4">
+          <p className="text-sm font-medium">Delete all trades with confirmation</p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            <input className={inputClass} onChange={(event) => setDeleteConfirm(event.target.value)} placeholder="Type DELETE" value={deleteConfirm} />
+            <Button onClick={deleteAllTrades} type="button"><Trash2 className="size-4" />Delete All Trades</Button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center">
-        <Button onClick={handleSave} type="button">
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-5 shadow-sm sm:flex-row sm:items-center">
+        <Button onClick={() => void handleSave()} type="button">
           <Save aria-hidden="true" className="size-4" />
           Save Settings
-        </Button>
-        <Button onClick={handleUseBrowserOffset} type="button" variant="secondary">
-          <RotateCcw aria-hidden="true" className="size-4" />
-          Use Browser Offset
         </Button>
         {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       </div>
     </section>
   );
+}
+
+const inputClass = "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring";
+
+function SettingsSection({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
+function Field({ children, label }: { children: React.ReactNode; label: string }) {
+  return <label className="space-y-2"><span className="text-sm font-medium">{label}</span>{children}</label>;
+}
+
+function NumberInput({ label, min, onChange, value }: { label: string; min?: number; onChange: (value: number) => void; value: number }) {
+  return (
+    <Field label={label}>
+      <input className={inputClass} min={min} onChange={(event) => onChange(Number(event.target.value))} step="any" type="number" value={value} />
+    </Field>
+  );
+}
+
+function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (value: boolean) => void }) {
+  return (
+    <label className="flex h-10 items-center justify-between gap-3 rounded-md border bg-background px-3 text-sm font-medium">
+      {label}
+      <input checked={checked} className="size-4" onChange={(event) => onChange(event.target.checked)} type="checkbox" />
+    </label>
+  );
+}
+
+function toCsv(trades: Trade[]) {
+  const headers = ["Trade Number", "Date", "Time", "Symbol", "Direction", "Timeframe", "Status", "Net Profit/Loss", "Withdrawal", "Ending Balance", "Rule Followed", "Quality Score", "Quality Grade"];
+  const rows = trades.map((trade) => [
+    trade.tradeNumber,
+    trade.date,
+    trade.time,
+    trade.symbol,
+    trade.direction,
+    trade.timeframe,
+    trade.status,
+    trade.netProfitLoss,
+    trade.withdrawalAmount,
+    trade.endingBalance,
+    trade.ruleFollowed,
+    trade.tradeQualityScore,
+    trade.tradeQualityGrade,
+  ]);
+
+  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replaceAll("\"", "\"\"")}"` : text;
+}
+
+function downloadFile(fileName: string, content: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function safe(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }

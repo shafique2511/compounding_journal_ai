@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   timezoneOffset: "UTC+00:00",
   dateFormat: "YYYY-MM-DD",
   timeFormat: "24-hour",
+  autoTradeNumber: true,
   defaultTimeframe: "M15",
   defaultSymbol: "",
   defaultCommission: 0,
@@ -30,4 +31,5 @@ export const DEFAULT_JOURNAL_STATE: JournalState = {
   trades: [],
   withdrawals: [],
   strategies: [],
+  filterPresets: [],
 };
