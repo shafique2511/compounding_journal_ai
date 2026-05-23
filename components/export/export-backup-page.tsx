@@ -5,7 +5,7 @@ import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
-import { createFullBackup, parseBackup } from "@/lib/backup";
+import { parseBackup } from "@/lib/backup";
 import {
   downloadFile,
   exportAiAnalysesToCsv,
@@ -16,11 +16,14 @@ import {
   exportStrategiesToCsv,
   exportTradesToCsv,
 } from "@/lib/export";
-import { deleteUserDocuments, listUserDocuments, saveAiAnalysis, saveFilterPreset, saveStrategy, saveUserSettings } from "@/lib/supabase";
 import { filterTrades, type TradeFilters } from "@/lib/trades/trade-ledger";
-import { recalculateTradesAfterChange } from "@/src/services/tradeService";
+import {
+  createBackupFromSupabase,
+  loadBackupData,
+  restoreBackupToSupabase,
+  uploadBackup,
+} from "@/src/services/backupService";
 import { useJournalStore } from "@/store";
-import type { AiAnalysis, FilterPreset, Strategy } from "@/types";
 
 const emptyFilters: TradeFilters = {
   dateFrom: "",
@@ -55,6 +58,7 @@ export function ExportBackupPage() {
   } = useJournalStore();
   const [filters, setFilters] = useState<TradeFilters>(emptyFilters);
   const [pendingBackup, setPendingBackup] = useState<Awaited<ReturnType<typeof parseBackup>> | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -62,78 +66,105 @@ export function ExportBackupPage() {
       return;
     }
 
-    Promise.all([
-      listUserDocuments<AiAnalysis>(user.id, "aiAnalyses"),
-      listUserDocuments<Strategy>(user.id, "strategies"),
-      listUserDocuments<FilterPreset>(user.id, "filterPresets"),
-    ])
-      .then(([remoteAiAnalyses, remoteStrategies, remoteFilterPresets]) => {
-        setAiAnalyses(remoteAiAnalyses);
-        if (remoteStrategies.length > 0) setStrategies(remoteStrategies);
-        if (remoteFilterPresets.length > 0) setFilterPresets(remoteFilterPresets);
+    loadBackupData(user.id)
+      .then((remoteData) => {
+        setSettings(remoteData.settings);
+        setTrades(remoteData.trades);
+        setAiAnalyses(remoteData.aiAnalyses);
+        setStrategies(remoteData.strategies);
+        setFilterPresets(remoteData.filterPresets);
       })
-      .catch(() => undefined);
-  }, [setAiAnalyses, setFilterPresets, setStrategies, user]);
+      .catch(() => setMessage("Supabase export data could not be loaded."));
+  }, [setAiAnalyses, setFilterPresets, setSettings, setStrategies, setTrades, user]);
 
   const filteredTrades = useMemo(() => filterTrades(trades, filters), [filters, trades]);
   const symbols = unique(trades.map((trade) => trade.symbol));
   const strategyNames = unique(trades.map((trade) => trade.strategyName).filter(Boolean));
 
-  function exportAllTrades() {
-    runExport(() => downloadFile("all-trades.csv", exportTradesToCsv(trades), "text/csv"), "All trades exported.");
+  async function exportAllTrades() {
+    await runExport(() => downloadFile("all-trades.csv", exportTradesToCsv(trades), "text/csv"), "All trades exported.");
   }
 
-  function exportFilteredTrades() {
-    runExport(() => downloadFile("filtered-trades.csv", exportTradesToCsv(filteredTrades), "text/csv"), "Filtered trades exported.");
+  async function exportFilteredTrades() {
+    await runExport(() => downloadFile("filtered-trades.csv", exportTradesToCsv(filteredTrades), "text/csv"), "Filtered trades exported.");
   }
 
-  function exportDashboardSummary() {
-    runExport(() => downloadFile("dashboard-summary.csv", exportDashboardSummaryToCsv(trades), "text/csv"), "Dashboard summary exported.");
+  async function exportDashboardSummary() {
+    await runExport(() => downloadFile("dashboard-summary.csv", exportDashboardSummaryToCsv(trades), "text/csv"), "Dashboard summary exported.");
   }
 
-  function exportAiHistoryCsv() {
-    runExport(() => downloadFile("ai-analysis-history.csv", exportAiAnalysesToCsv(aiAnalyses), "text/csv"), "AI analysis CSV exported.");
+  async function exportAiHistoryCsv() {
+    await runExport(() => downloadFile("ai-analysis-history.csv", exportAiAnalysesToCsv(aiAnalyses), "text/csv"), "AI analysis CSV exported.");
   }
 
-  function exportAiHistoryJson() {
-    runExport(() => downloadFile("ai-analysis-history.json", JSON.stringify(aiAnalyses, null, 2), "application/json"), "AI analysis JSON exported.");
+  async function exportAiHistoryJson() {
+    await runExport(() => downloadFile("ai-analysis-history.json", JSON.stringify(aiAnalyses, null, 2), "application/json"), "AI analysis JSON exported.");
   }
 
-  function exportStrategyPlaybook() {
-    runExport(() => downloadFile("strategy-playbook.csv", exportStrategiesToCsv(strategies), "text/csv"), "Strategy Playbook exported.");
+  async function exportStrategyPlaybook() {
+    await runExport(() => downloadFile("strategy-playbook.csv", exportStrategiesToCsv(strategies), "text/csv"), "Strategy Playbook exported.");
   }
 
-  function exportReviewReport() {
-    runExport(() => downloadFile("review-report.csv", exportReviewReportToCsv(trades), "text/csv"), "Review report exported.");
+  async function exportReviewReport() {
+    await runExport(() => downloadFile("review-report.csv", exportReviewReportToCsv(trades), "text/csv"), "Review report exported.");
   }
 
-  function exportMistakeAnalysis() {
-    runExport(() => downloadFile("mistake-analysis.csv", exportMistakeAnalysisToCsv(trades), "text/csv"), "Mistake analysis exported.");
+  async function exportMistakeAnalysis() {
+    await runExport(() => downloadFile("mistake-analysis.csv", exportMistakeAnalysisToCsv(trades), "text/csv"), "Mistake analysis exported.");
   }
 
-  function exportFilterPresets() {
-    runExport(() => downloadFile("filter-presets.json", exportFilterPresetsToJson(filterPresets), "application/json"), "Filter presets exported.");
+  async function exportFilterPresets() {
+    await runExport(() => downloadFile("filter-presets.json", exportFilterPresetsToJson(filterPresets), "application/json"), "Filter presets exported.");
   }
 
-  function backupAllData() {
-    runExport(() => {
-      const backup = createFullBackup({
-        aiAnalyses,
-        filterPresets,
-        settings,
-        strategies,
-        trades,
-      });
+  async function backupAllData() {
+    await runExport(async () => {
+      const backup = user
+        ? await createBackupFromSupabase(user.id)
+        : { aiAnalyses, filterPresets, settings, strategies, trades, exportedAt: new Date().toISOString(), appVersion: "1.0.0" };
       downloadFile("trade-compounding-journal-backup.json", JSON.stringify(backup, null, 2), "application/json");
     }, "Full backup JSON exported.");
   }
 
-  function runExport(action: () => void, successMessage: string) {
+  async function uploadBackupToSupabase() {
+    if (!user) {
+      setMessage("Login is required to upload backups to Supabase Storage.");
+      return;
+    }
+
+    await runExport(async () => {
+      const backup = await createBackupFromSupabase(user.id);
+      await uploadBackup(user.id, backup);
+    }, "Full backup uploaded to Supabase Storage.");
+  }
+
+  async function refreshFromSupabase() {
+    if (!user) {
+      setMessage("Login is required to refresh Supabase export data.");
+      return;
+    }
+
+    await runExport(async () => {
+      const remoteData = await loadBackupData(user.id);
+      setSettings(remoteData.settings);
+      setTrades(remoteData.trades);
+      setAiAnalyses(remoteData.aiAnalyses);
+      setStrategies(remoteData.strategies);
+      setFilterPresets(remoteData.filterPresets);
+    }, "Supabase export data refreshed.");
+  }
+
+  async function runExport(action: () => void | Promise<void>, successMessage: string) {
+    setIsWorking(true);
+    setMessage("");
+
     try {
-      action();
+      await action();
       setMessage(successMessage);
-    } catch {
-      setMessage("Export or backup failed. Check browser download permissions and try again.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Export or backup failed. Check permissions and try again.");
+    } finally {
+      setIsWorking(false);
     }
   }
 
@@ -143,7 +174,8 @@ export function ExportBackupPage() {
     }
 
     try {
-      setPendingBackup(parseBackup(await file.text()));
+      const parsedBackup = parseBackup(await file.text());
+      setPendingBackup(parsedBackup);
       setMessage("Backup validated. Confirm restore to replace local data.");
     } catch (error) {
       setPendingBackup(null);
@@ -160,31 +192,28 @@ export function ExportBackupPage() {
       return;
     }
 
-    setSettings(pendingBackup.settings);
-    setTrades(pendingBackup.trades);
-    setAiAnalyses(pendingBackup.aiAnalyses);
-    setStrategies(pendingBackup.strategies);
-    setFilterPresets(pendingBackup.filterPresets);
-
-    if (user) {
-      await Promise.all([
-        deleteUserDocuments(user.id, "trades"),
-        deleteUserDocuments(user.id, "aiAnalyses"),
-        deleteUserDocuments(user.id, "strategies"),
-        deleteUserDocuments(user.id, "filterPresets"),
-      ]).catch(() => undefined);
-
-      await Promise.all([
-        saveUserSettings(user.id, pendingBackup.settings),
-        recalculateTradesAfterChange(user.id, pendingBackup.trades, pendingBackup.settings.initialBalance),
-        ...pendingBackup.aiAnalyses.map((analysis) => saveAiAnalysis(user.id, analysis)),
-        ...pendingBackup.strategies.map((strategy) => saveStrategy(user.id, strategy)),
-        ...pendingBackup.filterPresets.map((preset) => saveFilterPreset(user.id, preset)),
-      ]).catch(() => undefined);
+    if (!user) {
+      setMessage("Login is required to restore data to Supabase.");
+      return;
     }
 
-    setPendingBackup(null);
-    setMessage("Backup restored. Balances, checklist scores, and trade quality scores were recalculated.");
+    setIsWorking(true);
+    setMessage("");
+
+    try {
+      const restoredBackup = await restoreBackupToSupabase(user.id, pendingBackup);
+      setSettings(restoredBackup.settings);
+      setTrades(restoredBackup.trades);
+      setAiAnalyses(restoredBackup.aiAnalyses);
+      setStrategies(restoredBackup.strategies);
+      setFilterPresets(restoredBackup.filterPresets);
+      setPendingBackup(null);
+      setMessage("Backup restored. Balances, checklist scores, trade quality scores, and dashboard data were recalculated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Restore failed. No invalid backup data was restored.");
+    } finally {
+      setIsWorking(false);
+    }
   }
 
   return (
@@ -246,6 +275,8 @@ export function ExportBackupPage() {
           <ExportButton label="Export Mistake Analysis CSV" onClick={exportMistakeAnalysis} />
           <ExportButton label="Export Filter Presets JSON" onClick={exportFilterPresets} icon={FileJson} />
           <ExportButton label="Backup All User Data JSON" onClick={backupAllData} icon={FileJson} />
+          <ExportButton label="Upload Backup to Supabase" onClick={uploadBackupToSupabase} icon={Upload} />
+          <ExportButton label="Refresh Supabase Data" onClick={refreshFromSupabase} icon={RotateCcw} />
         </div>
       </section>
 
@@ -266,7 +297,7 @@ export function ExportBackupPage() {
             ref={fileInputRef}
             type="file"
           />
-          <Button disabled={!pendingBackup} onClick={() => void confirmRestore()} type="button">
+          <Button disabled={!pendingBackup || isWorking} onClick={() => void confirmRestore()} type="button">
             <RotateCcw aria-hidden="true" className="size-4" />
             Confirm Restore
           </Button>
