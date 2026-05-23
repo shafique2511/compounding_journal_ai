@@ -10,13 +10,19 @@ service firebase.storage {
       return signedIn() && request.auth.uid == userId;
     }
 
-    match /screenshots/{userId}/{tradeId}/{fileName} {
+    match /screenshots/{userId}/{tradeId}/before.jpg {
       allow read, delete: if ownsUserPath(userId);
       allow create, update: if ownsUserPath(userId)
         && request.resource.size < 10 * 1024 * 1024;
     }
 
-    match /strategyScreenshots/{userId}/{strategyId}/{fileName} {
+    match /screenshots/{userId}/{tradeId}/after.jpg {
+      allow read, delete: if ownsUserPath(userId);
+      allow create, update: if ownsUserPath(userId)
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /strategyScreenshots/{userId}/{strategyId}/example.jpg {
       allow read, delete: if ownsUserPath(userId);
       allow create, update: if ownsUserPath(userId)
         && request.resource.size < 10 * 1024 * 1024;
