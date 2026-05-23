@@ -1,5 +1,5 @@
-import { PagePlaceholder } from "@/components/layout/page-placeholder";
+import { AiAnalysisPage as AiAnalysisView } from "@/components/ai";
 
 export default function AiAnalysisPage() {
-  return <PagePlaceholder title="AI Analysis" />;
+  return <AiAnalysisView />;
 }
