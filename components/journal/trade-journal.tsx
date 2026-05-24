@@ -83,6 +83,11 @@ export function TradeJournal() {
     : filteredTrades;
   const symbols = unique(trades.map((trade) => trade.symbol));
   const strategies = unique(trades.map((trade) => trade.strategyName).filter(Boolean));
+  const currentBalance = useMemo(() => getCurrentBalance(trades, settings.initialBalance), [settings.initialBalance, trades]);
+  const nextRiskAmount = useMemo(
+    () => (settings.maxRiskPerTradePercent > 0 ? (currentBalance * settings.maxRiskPerTradePercent) / 100 : 0),
+    [currentBalance, settings.maxRiskPerTradePercent],
+  );
 
   function applyPreset(nextPresetId: string) {
     setPresetId(nextPresetId);
@@ -142,6 +147,12 @@ export function TradeJournal() {
         </Button>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Current Balance" value={formatMoney(currentBalance, settings.currency)} />
+        <Metric label="Max Risk Per Trade" value={`${formatPercent(settings.maxRiskPerTradePercent)}%`} />
+        <Metric label="Next Risk Amount" value={formatMoney(nextRiskAmount, settings.currency)} tone="text-withdrawal" />
+      </div>
+
       <div className="rounded-lg border bg-card p-4 shadow-sm">
         <label className="relative block md:hidden">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -188,7 +199,12 @@ export function TradeJournal() {
       <div className="grid gap-3 md:hidden">
         {isLoadingTrades ? <TradeListSkeleton /> : null}
         {!isLoadingTrades && visibleTrades.map((trade) => (
-          <TradeMobileCard key={trade.id} onDelete={() => setTradeToDelete(trade)} trade={trade} />
+          <TradeMobileCard
+            currency={settings.currency}
+            key={trade.id}
+            onDelete={() => setTradeToDelete(trade)}
+            trade={trade}
+          />
         ))}
         {!isLoadingTrades && filteredTrades.length === 0 ? (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">No trades match the current filters.</div>
@@ -214,8 +230,8 @@ export function TradeJournal() {
                   <Td className="font-medium">{trade.symbol}</Td>
                   <Td>{trade.direction}</Td>
                   <Td>{trade.timeframe}</Td>
-                  <Td className={trade.netProfitLoss > 0 ? "text-profit" : trade.netProfitLoss < 0 ? "text-loss" : "text-breakeven"}>{formatMoney(trade.netProfitLoss)}</Td>
-                  <Td>{formatMoney(trade.endingBalance)}</Td>
+                  <Td className={trade.netProfitLoss > 0 ? "text-profit" : trade.netProfitLoss < 0 ? "text-loss" : "text-breakeven"}>{formatMoney(trade.netProfitLoss, settings.currency)}</Td>
+                  <Td>{formatMoney(trade.endingBalance, settings.currency)}</Td>
                   <Td><StatusBadge status={trade.status} /></Td>
                   <Td>{trade.mistakeTags.length ? trade.mistakeTags.join(", ") : "-"}</Td>
                   <Td>{trade.ruleFollowed}</Td>
@@ -402,7 +418,7 @@ function JournalFilterControls({
   );
 }
 
-function TradeMobileCard({ onDelete, trade }: { onDelete: () => void; trade: Trade }) {
+function TradeMobileCard({ currency, onDelete, trade }: { currency: string; onDelete: () => void; trade: Trade }) {
   return (
     <article className="rounded-lg border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -414,8 +430,8 @@ function TradeMobileCard({ onDelete, trade }: { onDelete: () => void; trade: Tra
         <StatusBadge status={trade.status} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <Metric label="Net P/L" value={formatMoney(trade.netProfitLoss)} tone={trade.netProfitLoss >= 0 ? "text-profit" : "text-loss"} />
-        <Metric label="Ending Balance" value={formatMoney(trade.endingBalance)} />
+        <Metric label="Net P/L" value={formatMoney(trade.netProfitLoss, currency)} tone={trade.netProfitLoss >= 0 ? "text-profit" : "text-loss"} />
+        <Metric label="Ending Balance" value={formatMoney(trade.endingBalance, currency)} />
         <Metric label="Quality" value={`${trade.tradeQualityScore} / ${trade.tradeQualityGrade}`} />
         <Metric label="Rule" value={trade.ruleFollowed} />
       </div>
@@ -500,6 +516,30 @@ function unique(values: string[]) {
   return Array.from(new Set(values)).sort();
 }
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+function getCurrentBalance(trades: Trade[], initialBalance: number) {
+  if (trades.length === 0) {
+    return safeNumber(initialBalance);
+  }
+
+  const latestTrade = [...trades].sort((first, second) => first.timestamp - second.timestamp).at(-1);
+  return latestTrade?.endingBalance ?? safeNumber(initialBalance);
+}
+
+function formatMoney(value: number, currency = "USD") {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      currency: currency.length === 3 ? currency : "USD",
+      style: "currency",
+    }).format(safeNumber(value));
+  } catch {
+    return `${currency || "USD"} ${safeNumber(value).toFixed(2)}`;
+  }
+}
+
+function formatPercent(value: number) {
+  return safeNumber(value).toFixed(2);
+}
+
+function safeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }

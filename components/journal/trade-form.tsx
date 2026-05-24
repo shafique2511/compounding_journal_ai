@@ -121,6 +121,7 @@ export function TradeForm({ trade }: TradeFormProps) {
     [activeStrategies, strategySearch],
   );
   const calculations = useMemo(() => {
+    const riskAmount = calculateNextRiskAmount(values.startingBalance, settings.maxRiskPerTradePercent);
     const netProfitLoss = calculateNetProfitLoss(values.grossProfitLoss, values.commission, values.swap);
     const endingBalance = calculateEndingBalance(
       values.startingBalance,
@@ -134,7 +135,7 @@ export function TradeForm({ trade }: TradeFormProps) {
       values.stopLoss,
       values.takeProfit,
     );
-    const rMultiple = calculateRMultiple(netProfitLoss, values.riskAmount);
+    const rMultiple = calculateRMultiple(netProfitLoss, riskAmount);
     const checklistScore = calculateChecklistScore(values);
     const checklistStatus = calculateChecklistStatus(checklistScore);
     const rewardAmount =
@@ -143,6 +144,7 @@ export function TradeForm({ trade }: TradeFormProps) {
       ...values,
       timeframe: values.timeframe as Trade["timeframe"],
       rewardAmount,
+      riskAmount,
       netProfitLoss,
       endingBalance,
       growthPercent,
@@ -159,12 +161,13 @@ export function TradeForm({ trade }: TradeFormProps) {
       growthPercent,
       netProfitLoss,
       rMultiple,
+      riskAmount,
       riskRewardRatio,
       rewardAmount,
       tradeQualityGrade: calculateTradeQualityGrade(tradeQualityScore),
       tradeQualityScore,
     };
-  }, [values]);
+  }, [settings.maxRiskPerTradePercent, values]);
   const riskWarnings = useMemo(
     () => buildRiskWarnings(values, calculations.riskRewardRatio, settings, trades, trade?.id),
     [calculations.riskRewardRatio, settings, trade?.id, trades, values],
@@ -173,6 +176,10 @@ export function TradeForm({ trade }: TradeFormProps) {
   useEffect(() => {
     form.setValue("startingBalance", autoStartingBalance, { shouldDirty: false });
   }, [autoStartingBalance, form]);
+
+  useEffect(() => {
+    form.setValue("riskAmount", calculations.riskAmount, { shouldDirty: false });
+  }, [calculations.riskAmount, form]);
 
   useEffect(() => {
     if (!selectedStrategyParam) {
@@ -218,6 +225,7 @@ export function TradeForm({ trade }: TradeFormProps) {
         mistakeTags: valuesToSave.mistakeTags,
       },
       trade ? { ...trade, id: tradeId } : ({ id: tradeId } as Trade),
+      settings.timezoneOffset,
     );
     const mergedTrades = trades.some((item) => item.id === nextTrade.id)
       ? trades.map((item) => (item.id === nextTrade.id ? nextTrade : item))
@@ -301,6 +309,11 @@ export function TradeForm({ trade }: TradeFormProps) {
       </section>
 
       <Section title="1. Trade Info">
+        {!trade ? (
+          <p className="rounded-md border bg-background p-3 text-sm text-muted-foreground md:col-span-3">
+            Date and time default to broker time from Settings: {settings.timezoneOffset}.
+          </p>
+        ) : null}
         <SymbolInput
           onPresetSelect={(symbol) => form.setValue("symbol", symbol, { shouldDirty: true, shouldValidate: true })}
           register={form.register("symbol")}
@@ -364,7 +377,8 @@ export function TradeForm({ trade }: TradeFormProps) {
 
       <Section title="3. Money Info">
         <input type="hidden" {...form.register("startingBalance", numberFieldOptions)} />
-        <Input label="Risk Amount" type="number" step="any" {...form.register("riskAmount", numberFieldOptions)} />
+        <input type="hidden" {...form.register("riskAmount", numberFieldOptions)} value={calculations.riskAmount} />
+        <ReadOnlyMetric label="Risk Amount" value={calculations.riskAmount} />
         <ReadOnlyMetric label="Reward Amount" value={calculations.rewardAmount} />
         <Input label="Gross Profit/Loss" type="number" step="any" {...form.register("grossProfitLoss", numberFieldOptions)} />
         <Input label="Commission" type="number" step="any" {...form.register("commission", numberFieldOptions)} />
@@ -789,4 +803,15 @@ function toNumber(value: unknown) {
 function getNextStartingBalance(trades: Trade[], initialBalance: number) {
   const sortedTrades = [...trades].sort((first, second) => first.timestamp - second.timestamp);
   return sortedTrades.at(-1)?.endingBalance ?? initialBalance;
+}
+
+function calculateNextRiskAmount(startingBalance: unknown, maxRiskPerTradePercent: unknown) {
+  const balance = toNumber(startingBalance);
+  const riskPercent = toNumber(maxRiskPerTradePercent);
+
+  if (balance <= 0 || riskPercent <= 0) {
+    return 0;
+  }
+
+  return (balance * riskPercent) / 100;
 }

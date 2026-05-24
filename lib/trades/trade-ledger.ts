@@ -10,6 +10,7 @@ import {
   calculateTradeQualityGrade,
   calculateTradeQualityScore,
 } from "@/lib/calculations";
+import { getDateTimePartsForOffset, getTimestampFromDateTimeOffset } from "@/lib/time/local-time";
 
 export type TradeFormValues = {
   date: string;
@@ -92,7 +93,11 @@ export const EMPTY_TRADE_FILTERS: TradeFilters = {
   ruleFollowed: "",
 };
 
-export function createTradeFromForm(values: TradeFormValues, existingTrade?: Trade): Trade {
+export function createTradeFromForm(
+  values: TradeFormValues,
+  existingTrade?: Trade,
+  timezoneOffset = "",
+): Trade {
   const now = Date.now();
   const rewardAmount =
     toNumber(values.rewardAmount) ||
@@ -111,7 +116,9 @@ export function createTradeFromForm(values: TradeFormValues, existingTrade?: Tra
   const rMultiple = calculateRMultiple(netProfitLoss, values.riskAmount);
   const checklistScore = calculateChecklistScore(values);
   const checklistStatus = calculateChecklistStatus(checklistScore);
-  const timestamp = new Date(`${values.date}T${values.time || "00:00"}`).getTime();
+  const timestamp = timezoneOffset
+    ? getTimestampFromDateTimeOffset(values.date, values.time, timezoneOffset)
+    : new Date(`${values.date}T${values.time || "00:00"}`).getTime();
   const safeTimestamp = Number.isFinite(timestamp) ? timestamp : now;
 
   const baseTrade: Trade = {
@@ -282,13 +289,11 @@ export function sortTrades(trades: Trade[], sort: TradeSort) {
 }
 
 export function getTradeFormDefaults(settings: AppSettings, trade?: Trade): TradeFormValues {
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const time = now.toTimeString().slice(0, 5);
+  const brokerDateTime = getDateTimePartsForOffset(settings.timezoneOffset);
 
   return {
-    date: trade?.date ?? date,
-    time: trade?.time ?? time,
+    date: trade?.date ?? brokerDateTime.date,
+    time: trade?.time ?? brokerDateTime.time,
     symbol: trade?.symbol ?? settings.defaultSymbol,
     direction: trade?.direction ?? "Buy",
     timeframe: trade?.timeframe ?? settings.defaultTimeframe,
