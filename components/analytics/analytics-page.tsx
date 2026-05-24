@@ -1,16 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import {
   calculateAverageR,
   calculateDailyLossUsed,
@@ -26,6 +18,11 @@ import { listUserDocuments } from "@/lib/supabase";
 import { filterTradesByPreset } from "@/lib/filters/filter-presets";
 import { useJournalStore } from "@/store";
 import type { FilterPreset, Trade } from "@/types";
+
+const AnalyticsChartSection = dynamic(
+  () => import("@/components/analytics/analytics-chart-section").then((module) => module.AnalyticsChartSection),
+  { loading: () => <AnalyticsChartSkeleton />, ssr: false },
+);
 
 const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"];
 const qualityGrades = ["A+", "A", "B", "C", "D"];
@@ -244,9 +241,9 @@ export function AnalyticsPage() {
         title="10. Strategy Template Analytics"
       />
 
-      <ChartSection data={strategyChartData} title="Strategy performance comparison" valueKey="netProfit" />
-      <ChartSection data={strategyChartData} title="Strategy quality score comparison" valueKey="qualityScore" />
-      <ChartSection data={strategyChartData} title="Strategy mistake count comparison" valueKey="mistakeCount" />
+      <AnalyticsChartSection data={strategyChartData} title="Strategy performance comparison" valueKey="netProfit" />
+      <AnalyticsChartSection data={strategyChartData} title="Strategy quality score comparison" valueKey="qualityScore" />
+      <AnalyticsChartSection data={strategyChartData} title="Strategy mistake count comparison" valueKey="mistakeCount" />
 
       <TableSection
         columns={["Month", "Net Profit", "Trades", "Win Rate", "Withdrawals"]}
@@ -395,39 +392,11 @@ function TableSection({
   );
 }
 
-function ChartSection({
-  data,
-  title,
-  valueKey,
-}: {
-  data: { mistakeCount: number; name: string; netProfit: number; qualityScore: number }[];
-  title: string;
-  valueKey: "mistakeCount" | "netProfit" | "qualityScore";
-}) {
+function AnalyticsChartSkeleton() {
   return (
     <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
-      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-      <div className="mt-4 h-64 rounded-lg border bg-background p-3 md:h-80 xl:h-96">
-        {data.length > 0 ? (
-          <ResponsiveContainer height="100%" width="100%">
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" interval="preserveStartEnd" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                }}
-              />
-              <Bar dataKey={valueKey} fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="grid h-full place-items-center text-sm text-muted-foreground">No strategy data yet</div>
-        )}
-      </div>
+      <div className="h-5 w-56 animate-pulse rounded bg-muted" />
+      <div className="mt-4 h-64 animate-pulse rounded-lg border bg-muted/40 md:h-80 xl:h-96" />
     </section>
   );
 }

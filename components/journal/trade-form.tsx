@@ -4,7 +4,7 @@ import { BookOpen, ImagePlus, Plus, Save, Trash2, Upload } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type UseFormRegisterReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth";
 import { useEscapeToClose } from "@/hooks/use-escape-to-close";
@@ -32,6 +32,7 @@ import {
 } from "@/lib/trades/trade-ledger";
 import { recalculateTradesAfterChange } from "@/src/services/tradeService";
 import { StrategyTemplateLibrary } from "@/components/strategies/strategy-template-library";
+import { symbolPresets } from "@/src/data/symbolPresets";
 import { useJournalStore } from "@/store";
 import type { ScreenshotSlot, Strategy, Trade } from "@/types";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,9 @@ const checklistFields: { name: keyof TradeFormValues; label: string }[] = [
   { name: "checklistNewsChecked", label: "News checked" },
   { name: "checklistEmotionStable", label: "Emotion stable" },
 ];
+const numberFieldOptions = {
+  setValueAs: parseNumberInput,
+};
 
 type TradeFormProps = {
   trade?: Trade;
@@ -297,7 +301,10 @@ export function TradeForm({ trade }: TradeFormProps) {
       </section>
 
       <Section title="1. Trade Info">
-        <Input label="Symbol" {...form.register("symbol")} />
+        <SymbolInput
+          onPresetSelect={(symbol) => form.setValue("symbol", symbol, { shouldDirty: true, shouldValidate: true })}
+          register={form.register("symbol")}
+        />
         <Select label="Direction" {...form.register("direction")}>
           <option>Buy</option>
           <option>Sell</option>
@@ -349,21 +356,21 @@ export function TradeForm({ trade }: TradeFormProps) {
       </Section>
 
       <Section title="2. Price Info">
-        <Input label="Entry Price" type="number" step="any" {...form.register("entryPrice", { valueAsNumber: true })} />
-        <Input label="Stop Loss" type="number" step="any" {...form.register("stopLoss", { valueAsNumber: true })} />
-        <Input label="Take Profit" type="number" step="any" {...form.register("takeProfit", { valueAsNumber: true })} />
-        <Input label="Lot Size" type="number" step="any" {...form.register("lotSize", { valueAsNumber: true })} />
+        <Input label="Entry Price" type="number" step="any" {...form.register("entryPrice", numberFieldOptions)} />
+        <Input label="Stop Loss" type="number" step="any" {...form.register("stopLoss", numberFieldOptions)} />
+        <Input label="Take Profit" type="number" step="any" {...form.register("takeProfit", numberFieldOptions)} />
+        <Input label="Lot Size" type="number" step="any" {...form.register("lotSize", numberFieldOptions)} />
       </Section>
 
       <Section title="3. Money Info">
-        <input type="hidden" {...form.register("startingBalance", { valueAsNumber: true })} />
-        <Input label="Risk Amount" type="number" step="any" {...form.register("riskAmount", { valueAsNumber: true })} />
+        <input type="hidden" {...form.register("startingBalance", numberFieldOptions)} />
+        <Input label="Risk Amount" type="number" step="any" {...form.register("riskAmount", numberFieldOptions)} />
         <ReadOnlyMetric label="Reward Amount" value={calculations.rewardAmount} />
-        <Input label="Gross Profit/Loss" type="number" step="any" {...form.register("grossProfitLoss", { valueAsNumber: true })} />
-        <Input label="Commission" type="number" step="any" {...form.register("commission", { valueAsNumber: true })} />
-        <Input label="Swap" type="number" step="any" {...form.register("swap", { valueAsNumber: true })} />
+        <Input label="Gross Profit/Loss" type="number" step="any" {...form.register("grossProfitLoss", numberFieldOptions)} />
+        <Input label="Commission" type="number" step="any" {...form.register("commission", numberFieldOptions)} />
+        <Input label="Swap" type="number" step="any" {...form.register("swap", numberFieldOptions)} />
         <ReadOnlyMetric label="Net Profit/Loss" value={calculations.netProfitLoss} />
-        <Input label="Withdrawal Amount" type="number" step="any" {...form.register("withdrawalAmount", { valueAsNumber: true })} />
+        <Input label="Withdrawal Amount" type="number" step="any" {...form.register("withdrawalAmount", numberFieldOptions)} />
         <ReadOnlyMetric label="Ending Balance" value={calculations.endingBalance} />
         <ReadOnlyMetric label="Growth %" value={calculations.growthPercent} suffix="%" />
         <ReadOnlyMetric label="Risk Reward Ratio" value={calculations.riskRewardRatio} />
@@ -647,6 +654,35 @@ function Input({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
   );
 }
 
+function SymbolInput({
+  onPresetSelect,
+  register,
+}: {
+  onPresetSelect: (symbol: string) => void;
+  register: UseFormRegisterReturn<"symbol">;
+}) {
+  return (
+    <div className="space-y-2 md:col-span-3">
+      <Input label="Symbol" list="symbol-presets" {...register} />
+      <datalist id="symbol-presets">
+        {symbolPresets.map((symbol) => <option key={symbol} value={symbol} />)}
+      </datalist>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {symbolPresets.map((symbol) => (
+          <button
+            className="shrink-0 rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            key={symbol}
+            onClick={() => onPresetSelect(symbol)}
+            type="button"
+          >
+            {symbol}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Select({ label, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
   return (
     <label className="space-y-2">
@@ -725,6 +761,15 @@ function formatNumber(value: number) {
 
 function isValidNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function parseNumberInput(value: unknown) {
+  if (value === "" || value === null || value === undefined) {
+    return 0;
+  }
+
+  const parsedValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
 }
 
 function toNumber(value: unknown) {

@@ -13,6 +13,7 @@ import { settingsSchema } from "@/lib/validation";
 import { formatTimezoneOffset, getBrowserTimezoneOffsetMinutes } from "@/lib/time/local-time";
 import { recalculateTradesInSequence } from "@/lib/trades/trade-ledger";
 import { deleteAllTrades as deleteAllRemoteTrades, recalculateTradesAfterChange } from "@/src/services/tradeService";
+import { symbolPresets } from "@/src/data/symbolPresets";
 import { DEFAULT_SETTINGS } from "@/store";
 import { useJournalStore } from "@/store";
 import type { AppSettings, FilterPreset, Strategy, Trade, Withdrawal } from "@/types";
@@ -268,7 +269,25 @@ export function SettingsPanel() {
           </select>
         </Field>
         <Field label="Default symbol">
-          <input className={inputClass} onChange={(event) => setDraft({ ...draft, defaultSymbol: event.target.value.toUpperCase() })} value={draft.defaultSymbol} />
+          <div className="grid gap-2">
+            <input
+              className={inputClass}
+              list="settings-symbol-presets"
+              onChange={(event) => setDraft({ ...draft, defaultSymbol: event.target.value.toUpperCase() })}
+              value={draft.defaultSymbol}
+            />
+            <datalist id="settings-symbol-presets">
+              {symbolPresets.map((symbol) => <option key={symbol} value={symbol} />)}
+            </datalist>
+            <select
+              className={inputClass}
+              onChange={(event) => setDraft({ ...draft, defaultSymbol: event.target.value })}
+              value={symbolPresets.includes(draft.defaultSymbol) ? draft.defaultSymbol : ""}
+            >
+              <option value="">Symbol preset</option>
+              {symbolPresets.map((symbol) => <option key={symbol}>{symbol}</option>)}
+            </select>
+          </div>
         </Field>
         <NumberInput label="Default commission" onChange={(value) => setDraft({ ...draft, defaultCommission: value })} value={draft.defaultCommission} />
         <NumberInput label="Default swap" onChange={(value) => setDraft({ ...draft, defaultSwap: value })} value={draft.defaultSwap} />
@@ -373,7 +392,14 @@ function Field({ children, label }: { children: React.ReactNode; label: string }
 function NumberInput({ label, min, onChange, value }: { label: string; min?: number; onChange: (value: number) => void; value: number }) {
   return (
     <Field label={label}>
-      <input className={inputClass} min={min} onChange={(event) => onChange(Number(event.target.value))} step="any" type="number" value={value} />
+      <input
+        className={inputClass}
+        min={min}
+        onChange={(event) => onChange(parseNumberInput(event.target.value, min))}
+        step="any"
+        type="number"
+        value={Number.isFinite(value) ? value : 0}
+      />
     </Field>
   );
 }
@@ -424,4 +450,10 @@ function downloadFile(fileName: string, content: string, type: string) {
 
 function safe(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function parseNumberInput(value: string, min?: number) {
+  const parsedValue = value.trim() === "" ? 0 : Number(value);
+  const safeValue = Number.isFinite(parsedValue) ? parsedValue : 0;
+  return typeof min === "number" ? Math.max(min, safeValue) : safeValue;
 }

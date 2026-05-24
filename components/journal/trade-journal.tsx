@@ -27,6 +27,7 @@ const timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"];
 const statuses = ["Win", "Loss", "Breakeven", "Running", "Cancelled"];
 const qualityGrades = ["A+", "A", "B", "C", "D"];
 const ruleStatuses = ["Yes", "No", "Partially"];
+const PAGE_SIZE = 50;
 
 export function TradeJournal() {
   const { user } = useAuth();
@@ -36,6 +37,8 @@ export function TradeJournal() {
   const [sort, setSort] = useState<TradeSort>("newest");
   const [tradeToDelete, setTradeToDelete] = useState<Trade | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isLoadingTrades, setIsLoadingTrades] = useState(false);
   const [message, setMessage] = useState("");
   useEscapeToClose(showMobileFilters, () => setShowMobileFilters(false));
   useEscapeToClose(Boolean(tradeToDelete), () => setTradeToDelete(null));
@@ -45,16 +48,23 @@ export function TradeJournal() {
       return;
     }
 
-    listTrades(user.id)
-      .then((remoteTrades) => {
+    const userId = user.id;
+    async function loadTrades() {
+      setIsLoadingTrades(true);
+      try {
+        const remoteTrades = await listTrades(userId);
         if (remoteTrades.length > 0) {
           setTrades(recalculateTradesInSequence(remoteTrades, settings.initialBalance));
         }
-      })
-      .catch((caughtError) => {
+      } catch (caughtError) {
         logTechnicalError(caughtError, { action: "load trades", source: "database" });
         setMessage("Trades could not be loaded from Supabase.");
-      });
+      } finally {
+        setIsLoadingTrades(false);
+      }
+    }
+
+    void loadTrades();
 
     listUserDocuments<FilterPreset>(user.id, "filterPresets")
       .then(setFilterPresets)
@@ -65,6 +75,12 @@ export function TradeJournal() {
     () => sortTrades(filterTrades(trades, filters), sort),
     [filters, sort, trades],
   );
+  const shouldPaginate = filteredTrades.length > 100;
+  const pageCount = shouldPaginate ? Math.max(1, Math.ceil(filteredTrades.length / PAGE_SIZE)) : 1;
+  const currentPage = Math.min(page, pageCount);
+  const visibleTrades = shouldPaginate
+    ? filteredTrades.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+    : filteredTrades;
   const symbols = unique(trades.map((trade) => trade.symbol));
   const strategies = unique(trades.map((trade) => trade.strategyName).filter(Boolean));
 
@@ -170,10 +186,11 @@ export function TradeJournal() {
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
 
       <div className="grid gap-3 md:hidden">
-        {filteredTrades.map((trade) => (
+        {isLoadingTrades ? <TradeListSkeleton /> : null}
+        {!isLoadingTrades && visibleTrades.map((trade) => (
           <TradeMobileCard key={trade.id} onDelete={() => setTradeToDelete(trade)} trade={trade} />
         ))}
-        {filteredTrades.length === 0 ? (
+        {!isLoadingTrades && filteredTrades.length === 0 ? (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">No trades match the current filters.</div>
         ) : null}
       </div>
@@ -187,7 +204,10 @@ export function TradeJournal() {
               </tr>
             </thead>
             <tbody>
-              {filteredTrades.map((trade) => (
+              {isLoadingTrades ? (
+                <tr><td className="p-6" colSpan={13}><TableSkeleton /></td></tr>
+              ) : null}
+              {!isLoadingTrades && visibleTrades.map((trade) => (
                 <tr className="border-t" key={trade.id}>
                   <Td>{trade.tradeNumber}</Td>
                   <Td>{trade.date} {trade.time}</Td>
@@ -210,13 +230,25 @@ export function TradeJournal() {
                   </Td>
                 </tr>
               ))}
-              {filteredTrades.length === 0 ? (
+              {!isLoadingTrades && filteredTrades.length === 0 ? (
                 <tr><td className="p-6 text-center text-muted-foreground" colSpan={13}>No trades match the current filters.</td></tr>
               ) : null}
             </tbody>
           </table>
         </div>
       </div>
+
+      {shouldPaginate ? (
+        <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 text-sm text-muted-foreground shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredTrades.length)} of {filteredTrades.length} trades
+          </span>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <Button disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} type="button" variant="secondary">Previous</Button>
+            <Button disabled={currentPage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} type="button" variant="secondary">Next</Button>
+          </div>
+        </div>
+      ) : null}
 
       {tradeToDelete ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm">
@@ -401,6 +433,33 @@ function TradeMobileCard({ onDelete, trade }: { onDelete: () => void; trade: Tra
         <Button onClick={onDelete} type="button" variant="ghost">Delete</Button>
       </div>
     </article>
+  );
+}
+
+function TradeListSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }, (_, index) => (
+        <div className="rounded-lg border bg-card p-4 shadow-sm" key={index}>
+          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          <div className="mt-3 h-6 w-40 animate-pulse rounded bg-muted" />
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="h-16 animate-pulse rounded-lg bg-muted/60" />
+            <div className="h-16 animate-pulse rounded-lg bg-muted/60" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="grid gap-3">
+      {Array.from({ length: 5 }, (_, index) => (
+        <div className="h-8 animate-pulse rounded bg-muted/60" key={index} />
+      ))}
+    </div>
   );
 }
 
