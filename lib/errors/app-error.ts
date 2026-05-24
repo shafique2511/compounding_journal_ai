@@ -49,6 +49,14 @@ export function logTechnicalError(error: unknown, context: ErrorContext = {}) {
 function toFriendlyMessage(error: unknown, context: ErrorContext, fallback?: string) {
   const message = getRawMessage(error).toLowerCase();
 
+  if (message.includes("supabase") && message.includes("configured")) {
+    return getRawMessage(error);
+  }
+
+  if (message.includes("supabase url") || message.includes("supabase anon key")) {
+    return getRawMessage(error);
+  }
+
   if (message.includes("jwt") || message.includes("session") || message.includes("refresh token")) {
     return "Your session expired. Please sign in again.";
   }

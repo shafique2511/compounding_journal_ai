@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { createFriendlyError } from "@/lib/errors/app-error";
+import { getSupabaseConfigErrorMessage, getSupabasePublicConfig } from "@/src/lib/supabase/env";
 import type { Database } from "@/src/types/supabase";
 
 let browserClient: SupabaseClient<Database> | null = null;
@@ -8,15 +9,14 @@ let browserClient: SupabaseClient<Database> | null = null;
 export type SupabaseAuthUser = User;
 
 export function createSupabaseBrowserClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const config = getSupabasePublicConfig();
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!config) {
     return null;
   }
 
   if (!browserClient) {
-    browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+    browserClient = createBrowserClient<Database>(config.url, config.anonKey);
   }
 
   return browserClient;
@@ -26,7 +26,7 @@ export function requireSupabaseBrowserClient() {
   const supabase = createSupabaseBrowserClient();
 
   if (!supabase) {
-    throw createFriendlyError("Missing Supabase browser configuration.", { source: "auth" });
+    throw createFriendlyError(getSupabaseConfigErrorMessage(), { source: "auth" });
   }
 
   return supabase;

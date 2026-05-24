@@ -3,19 +3,19 @@ import { cookies } from "next/headers";
 import type { Session } from "@supabase/supabase-js";
 import { createFriendlyError } from "@/lib/errors/app-error";
 import type { SupabaseAuthUser } from "@/src/lib/supabase/client";
+import { getSupabaseConfigErrorMessage, getSupabasePublicConfig } from "@/src/lib/supabase/env";
 import type { Database } from "@/src/types/supabase";
 
 export async function createSupabaseServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const config = getSupabasePublicConfig();
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!config) {
     return null;
   }
 
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return createServerClient<Database>(config.url, config.anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -37,7 +37,7 @@ export async function requireSupabaseServerClient() {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
-    throw createFriendlyError("Missing Supabase server configuration.", { source: "auth" });
+    throw createFriendlyError(getSupabaseConfigErrorMessage(), { source: "auth" });
   }
 
   return supabase;
