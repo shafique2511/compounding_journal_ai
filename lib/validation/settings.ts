@@ -14,7 +14,7 @@ export const settingsSchema = z.object({
   themeMode: z.enum(["light", "dark", "system"]),
   accentColor: z.string().trim().min(1).max(32),
   aiProvider: z.enum(["openai", "gemini"]),
-  aiModel: z.string().trim().min(1).max(100),
+  aiModel: z.string().trim().max(100),
   enableScreenshotAnalysis: z.boolean(),
   saveAiAnalysisHistory: z.boolean(),
   maxRiskPerTradePercent: z.coerce.number().min(0),

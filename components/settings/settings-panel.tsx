@@ -32,6 +32,10 @@ const aiProviderOptions = [
   { value: "gemini" as const, label: "Gemini" },
   { value: "openai" as const, label: "ChatGPT / OpenAI" },
 ];
+const defaultAiModels = {
+  gemini: "gemini-2.5-flash",
+  openai: "gpt-4.1-mini",
+} satisfies Record<AppSettings["aiProvider"], string>;
 
 type BackupPayload = {
   filterPresets?: FilterPreset[];
@@ -305,12 +309,32 @@ export function SettingsPanel() {
 
       <SettingsSection title="5. AI Settings">
         <Field label="AI provider">
-          <select className={inputClass} onChange={(event) => setDraft({ ...draft, aiProvider: event.target.value as AppSettings["aiProvider"] })} value={draft.aiProvider}>
+          <select
+            className={inputClass}
+            onChange={(event) => {
+              const aiProvider = event.target.value as AppSettings["aiProvider"];
+              const currentModelMatchesProvider =
+                aiProvider === "gemini"
+                  ? draft.aiModel.startsWith("gemini-")
+                  : draft.aiModel && !draft.aiModel.startsWith("gemini-");
+              setDraft({
+                ...draft,
+                aiModel: currentModelMatchesProvider ? draft.aiModel : defaultAiModels[aiProvider],
+                aiProvider,
+              });
+            }}
+            value={draft.aiProvider}
+          >
             {aiProviderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="AI model">
-          <input className={inputClass} onChange={(event) => setDraft({ ...draft, aiModel: event.target.value })} value={draft.aiModel} />
+          <input
+            className={inputClass}
+            onChange={(event) => setDraft({ ...draft, aiModel: event.target.value })}
+            placeholder={defaultAiModels[draft.aiProvider]}
+            value={draft.aiModel}
+          />
         </Field>
         <Toggle checked={draft.enableScreenshotAnalysis} label="Enable screenshot analysis" onChange={(value) => setDraft({ ...draft, enableScreenshotAnalysis: value })} />
         <Toggle checked={draft.saveAiAnalysisHistory} label="Save AI analysis history" onChange={(value) => setDraft({ ...draft, saveAiAnalysisHistory: value })} />

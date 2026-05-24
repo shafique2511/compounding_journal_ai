@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildAiInputSummary, buildAiPrompt, filterTradesForAi } from "@/lib/ai/analysis";
-import { createFriendlyError, getFriendlyErrorMessage, logTechnicalError } from "@/lib/errors/app-error";
+import {
+  createFriendlyError,
+  FriendlyError,
+  getFriendlyErrorMessage,
+  logTechnicalError,
+} from "@/lib/errors/app-error";
 import {
   aiAnalysisToInsert,
   settingsFromRow,
@@ -52,6 +57,8 @@ const aiAnalyzeRequestSchema = z.object({
 
 const systemPrompt =
   "You are a professional trading journal coach. Analyze trade-by-trade compounding data, risk behavior, strategy adherence, psychology, screenshots, withdrawals, and improvement. Do not provide trade signals, do not tell the user exactly what trade to take, do not guarantee profit, do not encourage revenge trading, do not encourage overlotting, and do not give unsafe risk advice.";
+const defaultGeminiModel = "gemini-2.5-flash";
+const defaultOpenAiModel = "gpt-4.1-mini";
 
 export async function POST(request: Request) {
   try {
@@ -96,7 +103,7 @@ export async function POST(request: Request) {
       ? { ...DEFAULT_SETTINGS, ...settingsFromRow(settingsResult.data as SettingsRow) }
       : DEFAULT_SETTINGS;
     const provider = parsedBody.data.provider ?? settings.aiProvider;
-    const model = parsedBody.data.model?.trim() || settings.aiModel;
+    const model = resolveAiModel(provider, parsedBody.data.model?.trim() || settings.aiModel);
 
     if (provider !== "openai" && provider !== "gemini") {
       return NextResponse.json(
@@ -173,7 +180,7 @@ async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
     throw createFriendlyError("Missing OpenAI API key.", { action: "openai api key", source: "ai" });
   }
 
-  const model = requestedModel || process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const model = requestedModel || process.env.OPENAI_MODEL || defaultOpenAiModel;
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     body: JSON.stringify({
       model,
@@ -191,10 +198,7 @@ async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {
   });
 
   if (!response.ok) {
-    throw createFriendlyError(`OpenAI request failed with status ${response.status}.`, {
-      action: "openai request",
-      source: "ai",
-    });
+    throw await createAiProviderError("OpenAI", response);
   }
 
   const data = (await response.json()) as {
@@ -214,7 +218,7 @@ async function analyzeWithGemini(prompt: string, requestedModel?: string) {
     throw createFriendlyError("Missing Gemini API key.", { action: "gemini api key", source: "ai" });
   }
 
-  const model = requestedModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+  const model = requestedModel || process.env.GEMINI_MODEL || defaultGeminiModel;
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
     {
@@ -236,10 +240,7 @@ async function analyzeWithGemini(prompt: string, requestedModel?: string) {
   );
 
   if (!response.ok) {
-    throw createFriendlyError(`Gemini request failed with status ${response.status}.`, {
-      action: "gemini request",
-      source: "ai",
-    });
+    throw await createAiProviderError("Gemini", response);
   }
 
   const data = (await response.json()) as {
@@ -250,6 +251,60 @@ async function analyzeWithGemini(prompt: string, requestedModel?: string) {
     analysis: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "",
     model,
   };
+}
+
+function resolveAiModel(provider: "gemini" | "openai", model: string) {
+  const trimmedModel = model.trim();
+
+  if (provider === "gemini") {
+    return trimmedModel.startsWith("gemini-")
+      ? trimmedModel
+      : process.env.GEMINI_MODEL || defaultGeminiModel;
+  }
+
+  return trimmedModel && !trimmedModel.startsWith("gemini-")
+    ? trimmedModel
+    : process.env.OPENAI_MODEL || defaultOpenAiModel;
+}
+
+async function createAiProviderError(provider: "Gemini" | "OpenAI", response: Response) {
+  const details = await readProviderError(response);
+  const message = details.toLowerCase();
+
+  if (message.includes("api key") || message.includes("key not valid") || response.status === 401) {
+    return new FriendlyError(`${provider} API key is missing or invalid. Check your Vercel environment variables.`, {
+      action: `${provider.toLowerCase()} request`,
+      source: "ai",
+    });
+  }
+
+  if (message.includes("not found") || message.includes("model") || response.status === 404) {
+    return new FriendlyError(`${provider} model is not available. Clear the AI model field or use a valid ${provider} model.`, {
+      action: `${provider.toLowerCase()} request`,
+      source: "ai",
+    });
+  }
+
+  if (message.includes("quota") || message.includes("rate") || response.status === 429) {
+    return new FriendlyError(`${provider} rate limit or quota was reached. Try again later or check your provider billing.`, {
+      action: `${provider.toLowerCase()} request`,
+      source: "ai",
+    });
+  }
+
+  return new FriendlyError(`${provider} request failed. Check provider settings and try again.`, {
+    action: `${provider.toLowerCase()} request`,
+    source: "ai",
+  });
+}
+
+async function readProviderError(response: Response) {
+  try {
+    const data = (await response.json()) as { error?: { message?: string }; message?: string };
+    return data.error?.message ?? data.message ?? `HTTP ${response.status}`;
+  } catch {
+    return `HTTP ${response.status}`;
+  }
 }
 
 function formatDateRange(values: z.infer<typeof aiFilterSchema>) {
