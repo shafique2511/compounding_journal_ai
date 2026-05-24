@@ -57,6 +57,14 @@ function toFriendlyMessage(error: unknown, context: ErrorContext, fallback?: str
     return getRawMessage(error);
   }
 
+  if (
+    message.includes("please login first") ||
+    message.includes("locally stored trades") ||
+    message.includes("permission blocked by database policy")
+  ) {
+    return getRawMessage(error);
+  }
+
   if (message.includes("jwt") || message.includes("session") || message.includes("refresh token")) {
     return "Your session expired. Please sign in again.";
   }

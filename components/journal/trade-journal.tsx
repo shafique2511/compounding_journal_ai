@@ -53,11 +53,10 @@ export function TradeJournal() {
       setIsLoadingTrades(true);
       try {
         const remoteTrades = await listTrades(userId);
-        if (remoteTrades.length > 0) {
-          setTrades(recalculateTradesInSequence(remoteTrades, settings.initialBalance));
-        }
+        setTrades(recalculateTradesInSequence(remoteTrades, settings.initialBalance));
       } catch (caughtError) {
         logTechnicalError(caughtError, { action: "load trades", source: "database" });
+        setTrades([]);
         setMessage("Trades could not be loaded from Supabase.");
       } finally {
         setIsLoadingTrades(false);

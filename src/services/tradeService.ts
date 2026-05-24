@@ -109,7 +109,7 @@ export async function recalculateTradesAfterChange(
 
 async function syncRecalculatedTrades(userId: string, trades: Trade[]) {
   const response = await fetch("/api/trades/sync", {
-    body: JSON.stringify({ trades }),
+    body: JSON.stringify({ trades, userId }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });

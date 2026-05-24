@@ -94,6 +94,11 @@ export async function listTrades(userId: string) {
 }
 
 export async function saveTrade(userId: string, trade: Trade) {
+  if (typeof window !== "undefined") {
+    await syncTradesWithServer(userId, [trade]);
+    return;
+  }
+
   const supabase = await requireAuthenticatedOwner(userId);
   const { data: existingTrade, error: lookupError } = await supabase
     .from("trades")
@@ -116,6 +121,21 @@ export async function saveTrade(userId: string, trade: Trade) {
 
   if (error) {
     throwPostgrestError(error);
+  }
+}
+
+async function syncTradesWithServer(userId: string, trades: Trade[]) {
+  const response = await fetch("/api/trades/sync", {
+    body: JSON.stringify({ trades, userId }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+  if (!response.ok || data.error) {
+    throw createFriendlyError(data.error || "Trades could not be saved to Supabase.", {
+      source: "database",
+    });
   }
 }
 
