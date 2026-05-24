@@ -645,11 +645,21 @@ function Section({ children, title }: { children: React.ReactNode; title: string
   );
 }
 
-function Input({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+function Input({ label, onFocus, type, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
     <label className="space-y-2">
       <span className="text-sm font-medium">{label}</span>
-      <input className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm" {...props} />
+      <input
+        className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10 md:text-sm"
+        onFocus={(event) => {
+          onFocus?.(event);
+          if (type === "number" && event.currentTarget.value === "0") {
+            event.currentTarget.select();
+          }
+        }}
+        type={type}
+        {...props}
+      />
     </label>
   );
 }

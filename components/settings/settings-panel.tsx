@@ -395,6 +395,11 @@ function NumberInput({ label, min, onChange, value }: { label: string; min?: num
       <input
         className={inputClass}
         min={min}
+        onFocus={(event) => {
+          if (event.currentTarget.value === "0") {
+            event.currentTarget.select();
+          }
+        }}
         onChange={(event) => onChange(parseNumberInput(event.target.value, min))}
         step="any"
         type="number"
