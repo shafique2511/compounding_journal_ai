@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth";
 import { logTechnicalError } from "@/lib/errors/app-error";
 import { loadBackupData } from "@/src/services/backupService";
 import { DEFAULT_SETTINGS, useJournalStore } from "@/store";
 
 export function JournalDataSync() {
+  const router = useRouter();
   const { user } = useAuth();
   const {
     setAiAnalyses,
@@ -27,6 +29,7 @@ export function JournalDataSync() {
       setFilterPresets([]);
       setAiAnalyses([]);
       setWithdrawals([]);
+      router.replace("/login?message=Please%20login%20to%20access%20your%20trading%20journal.");
       return;
     }
 
@@ -51,6 +54,7 @@ export function JournalDataSync() {
       isCancelled = true;
     };
   }, [
+    router,
     setAiAnalyses,
     setFilterPresets,
     setSettings,

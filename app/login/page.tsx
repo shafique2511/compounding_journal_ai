@@ -1,5 +1,11 @@
 import { AuthCard } from "@/components/auth";
 
-export default function LoginPage() {
-  return <AuthCard mode="login" />;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ message?: string }>;
+}) {
+  const params = await searchParams;
+
+  return <AuthCard message={params?.message ?? ""} mode="login" />;
 }

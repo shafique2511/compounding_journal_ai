@@ -5,11 +5,11 @@ type ErrorContext = {
 
 const genericMessages = {
   ai: "AI analysis failed. Check your provider settings and try again.",
-  auth: "Authentication failed. Check your session and try again.",
+  auth: "Please login again to access your trading journal.",
   backup: "Backup action failed. Check the file and try again.",
   database: "Supabase data request failed. Please try again.",
   export: "Export failed. Check browser download permissions and try again.",
-  storage: "File upload failed. Check storage permissions and try again.",
+  storage: "We could not load this screenshot. Please check storage permission or upload again.",
   validation: "Some fields need attention before continuing.",
 } satisfies Record<NonNullable<ErrorContext["source"]>, string>;
 
@@ -39,7 +39,6 @@ export function getFriendlyErrorMessage(error: unknown, fallback = "Something we
 
 export function logTechnicalError(error: unknown, context: ErrorContext = {}) {
   if (process.env.NODE_ENV === "production") {
-    console.error("[TradeJournal]", context, normalizeForLog(error));
     return;
   }
 
@@ -57,24 +56,45 @@ function toFriendlyMessage(error: unknown, context: ErrorContext, fallback?: str
     return getRawMessage(error);
   }
 
+  if (message.includes("please login first")) {
+    return "Please login again to access your trading journal.";
+  }
+
   if (
-    message.includes("please login first") ||
     message.includes("locally stored trades") ||
-    message.includes("permission blocked by database policy")
+    message.includes("another account") ||
+    message.includes("permission denied for this user data")
   ) {
-    return getRawMessage(error);
+    return "You can only access your own trading journal data.";
+  }
+
+  if (message.includes("permission blocked by database policy")) {
+    return context.source === "storage"
+      ? genericMessages.storage
+      : "We could not access this data because your account permission check failed.";
   }
 
   if (message.includes("jwt") || message.includes("session") || message.includes("refresh token")) {
-    return "Your session expired. Please sign in again.";
+    return "Please login again to access your trading journal.";
+  }
+
+  if (
+    context.source === "storage" &&
+    (message.includes("permission") ||
+      message.includes("row-level security") ||
+      message.includes("rls") ||
+      message.includes("unauthorized") ||
+      message.includes("403"))
+  ) {
+    return genericMessages.storage;
   }
 
   if (message.includes("permission") || message.includes("row-level security") || message.includes("rls")) {
-    return "You do not have permission to access this data.";
+    return "We could not access this data because your account permission check failed.";
   }
 
   if (message.includes("not authenticated") || message.includes("sign in") || message.includes("login")) {
-    return "Login is required to continue.";
+    return "Please login again to access your trading journal.";
   }
 
   if (message.includes("api key") || message.includes("unauthorized") || message.includes("401")) {
@@ -106,16 +126,4 @@ function getRawMessage(error: unknown) {
   }
 
   return String(error ?? "");
-}
-
-function normalizeForLog(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    };
-  }
-
-  return error;
 }

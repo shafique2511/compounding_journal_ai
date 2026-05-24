@@ -1,4 +1,4 @@
-import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { createFriendlyError } from "@/lib/errors/app-error";
 import { requireSupabaseClient } from "@/lib/supabase/config";
 import { DEFAULT_SETTINGS } from "@/store/default-state";
@@ -20,7 +20,6 @@ import {
   type StrategyRow,
   type TradeRow,
 } from "@/lib/supabase/mappers";
-import type { Database } from "@/src/types/supabase";
 import type { AiAnalysis, AppSettings, FilterPreset, Strategy, Trade } from "@/types";
 
 type UserCollection = "trades" | "aiAnalyses" | "strategies" | "filterPresets" | "settings";
@@ -65,11 +64,12 @@ export async function listUserDocuments<T extends { id: string }>(
   userId: string,
   collectionName: UserCollection,
 ) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const tableName = tableMap[collectionName];
   const { data, error } = await requireSupabaseClient()
     .from(tableName)
     .select("*")
-    .eq("user_id", userId);
+    .eq("user_id", ownerId);
 
   if (error) {
     throwPostgrestError(error);
@@ -81,10 +81,11 @@ export async function listUserDocuments<T extends { id: string }>(
 }
 
 export async function listTrades(userId: string) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { data, error } = await requireSupabaseClient()
     .from("trades")
     .select("*")
-    .eq("user_id", userId);
+    .eq("user_id", ownerId);
 
   if (error) {
     throwPostgrestError(error);
@@ -94,17 +95,19 @@ export async function listTrades(userId: string) {
 }
 
 export async function saveTrade(userId: string, trade: Trade) {
+  const ownerId = await requireAuthenticatedOwner(userId);
+
   if (typeof window !== "undefined") {
-    await syncTradesWithServer(userId, [trade]);
+    await syncTradesWithServer(ownerId, [trade]);
     return;
   }
 
-  const supabase = await requireAuthenticatedOwner(userId);
+  const supabase = requireSupabaseClient();
   const { data: existingTrade, error: lookupError } = await supabase
     .from("trades")
     .select("id")
     .eq("id", trade.id)
-    .eq("user_id", userId)
+    .eq("user_id", ownerId)
     .maybeSingle();
 
   if (lookupError) {
@@ -114,10 +117,10 @@ export async function saveTrade(userId: string, trade: Trade) {
   const { error } = existingTrade
     ? await supabase
         .from("trades")
-        .update(tradeToUpdate(trade, userId))
+        .update(tradeToUpdate(trade, ownerId))
         .eq("id", trade.id)
-        .eq("user_id", userId)
-    : await supabase.from("trades").insert(tradeToInsert(trade, userId));
+        .eq("user_id", ownerId)
+    : await supabase.from("trades").insert(tradeToInsert(trade, ownerId));
 
   if (error) {
     throwPostgrestError(error);
@@ -140,9 +143,10 @@ async function syncTradesWithServer(userId: string, trades: Trade[]) {
 }
 
 export async function saveStrategy(userId: string, strategy: Strategy) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { error } = await requireSupabaseClient()
     .from("strategies")
-    .upsert(strategyToInsert(strategy, userId));
+    .upsert(strategyToInsert(strategy, ownerId));
 
   if (error) {
     throwPostgrestError(error);
@@ -150,9 +154,10 @@ export async function saveStrategy(userId: string, strategy: Strategy) {
 }
 
 export async function saveAiAnalysis(userId: string, analysis: AiAnalysis) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { error } = await requireSupabaseClient()
     .from("ai_analyses")
-    .upsert(aiAnalysisToInsert(analysis, userId));
+    .upsert(aiAnalysisToInsert(analysis, ownerId));
 
   if (error) {
     throwPostgrestError(error);
@@ -160,9 +165,10 @@ export async function saveAiAnalysis(userId: string, analysis: AiAnalysis) {
 }
 
 export async function saveFilterPreset(userId: string, preset: FilterPreset) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { error } = await requireSupabaseClient()
     .from("filter_presets")
-    .upsert(filterPresetToInsert(preset, userId));
+    .upsert(filterPresetToInsert(preset, ownerId));
 
   if (error) {
     throwPostgrestError(error);
@@ -170,11 +176,12 @@ export async function saveFilterPreset(userId: string, preset: FilterPreset) {
 }
 
 export async function saveUserSettings(userId: string, settings: AppSettings) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { error } = await requireSupabaseClient()
     .from("user_settings")
     .upsert(
       {
-        ...settingsToUpdate(settings, userId),
+        ...settingsToUpdate(settings, ownerId),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
@@ -190,10 +197,11 @@ export async function deleteUserDocument(
   collectionName: Exclude<UserCollection, "settings">,
   documentId: string,
 ) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { error } = await requireSupabaseClient()
     .from(tableMap[collectionName])
     .delete()
-    .eq("user_id", userId)
+    .eq("user_id", ownerId)
     .eq("id", documentId);
 
   if (error) {
@@ -205,10 +213,11 @@ export async function deleteUserDocuments(
   userId: string,
   collectionName: Exclude<UserCollection, "settings">,
 ) {
+  const ownerId = await requireAuthenticatedOwner(userId);
   const { error } = await requireSupabaseClient()
     .from(tableMap[collectionName])
     .delete()
-    .eq("user_id", userId);
+    .eq("user_id", ownerId);
 
   if (error) {
     throwPostgrestError(error);
@@ -219,7 +228,7 @@ function throwPostgrestError(error: PostgrestError): never {
   throw createFriendlyError(error, { source: "database" });
 }
 
-async function requireAuthenticatedOwner(userId: string): Promise<SupabaseClient<Database>> {
+async function requireAuthenticatedOwner(userId: string): Promise<string> {
   const supabase = requireSupabaseClient();
   const { data, error } = await supabase.auth.getUser();
 
@@ -235,7 +244,7 @@ async function requireAuthenticatedOwner(userId: string): Promise<SupabaseClient
     throw createFriendlyError("Permission denied for this user data.", { source: "database" });
   }
 
-  return supabase;
+  return data.user.id;
 }
 
 function mapRowByCollection(collectionName: UserCollection, row: Record<string, unknown>) {

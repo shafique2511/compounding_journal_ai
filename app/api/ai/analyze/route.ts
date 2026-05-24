@@ -12,6 +12,7 @@ import {
   settingsFromRow,
   strategyFromRow,
   tradeFromRow,
+  type AiAnalysisInsert,
   type SettingsRow,
   type StrategyRow,
   type TradeRow,
@@ -147,7 +148,7 @@ export async function POST(request: Request) {
       };
       const { error: saveError } = await supabase
         .from("ai_analyses")
-        .insert(aiAnalysisToInsert(analysisDocument, user.id));
+        .insert(toAuthenticatedAiAnalysisInsert(analysisDocument, user.id));
 
       if (saveError) {
         logTechnicalError(saveError, { action: "save AI analysis", source: "database" });
@@ -171,6 +172,16 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function toAuthenticatedAiAnalysisInsert(
+  analysis: AiAnalysis,
+  authenticatedUserId: string,
+): AiAnalysisInsert {
+  return {
+    ...aiAnalysisToInsert(analysis, authenticatedUserId),
+    user_id: authenticatedUserId,
+  };
 }
 
 async function analyzeWithOpenAI(prompt: string, requestedModel?: string) {

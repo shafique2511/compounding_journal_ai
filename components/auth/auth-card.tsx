@@ -20,13 +20,14 @@ import { authCredentialsSchema, authEmailSchema } from "@/lib/validation";
 type AuthMode = "login" | "register" | "forgot";
 
 type AuthCardProps = {
+  message?: string;
   mode: AuthMode;
 };
 
 type CredentialsInput = z.infer<typeof authCredentialsSchema>;
 type ResetInput = z.infer<typeof authEmailSchema>;
 
-export function AuthCard({ mode }: AuthCardProps) {
+export function AuthCard({ message: initialMessage = "", mode }: AuthCardProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [authError, setAuthError] = useState("");
@@ -94,6 +95,12 @@ export function AuthCard({ mode }: AuthCardProps) {
           {isForgot ? "Reset password" : isLogin ? "Login" : "Create account"}
         </h1>
       </div>
+
+      {initialMessage ? (
+        <p className="mt-4 rounded-md border bg-background p-3 text-sm text-muted-foreground">
+          {initialMessage}
+        </p>
+      ) : null}
 
       {isForgot ? (
         <form className="mt-6 space-y-4" onSubmit={resetForm.handleSubmit(handleReset)}>

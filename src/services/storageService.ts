@@ -2,6 +2,9 @@ import { STORAGE_BUCKETS, requireSupabaseClient } from "@/lib/supabase/config";
 import { createFriendlyError } from "@/lib/errors/app-error";
 import {
   deleteStorageFile,
+  getStrategyScreenshotPath,
+  getTradeScreenshotPath,
+  requireStoragePathOwner,
   uploadStrategyScreenshot as uploadStrategyImage,
   uploadTradeScreenshot as uploadTradeImage,
 } from "@/lib/supabase/storage";
@@ -17,8 +20,7 @@ export function uploadTradeScreenshot(
 }
 
 export function deleteTradeScreenshot(userId: string, tradeId: string, slot: ScreenshotSlot) {
-  const fileName = slot === "beforeEntry" ? "before.jpg" : "after.jpg";
-  return deleteStorageFile(`${STORAGE_BUCKETS.tradeScreenshots}/${userId}/${tradeId}/${fileName}`);
+  return deleteStorageFile(`${STORAGE_BUCKETS.tradeScreenshots}/${getTradeScreenshotPath(userId, tradeId, slot)}`);
 }
 
 export function uploadStrategyScreenshot(userId: string, strategyId: string, file: File) {
@@ -26,10 +28,11 @@ export function uploadStrategyScreenshot(userId: string, strategyId: string, fil
 }
 
 export function deleteStrategyScreenshot(userId: string, strategyId: string) {
-  return deleteStorageFile(`${STORAGE_BUCKETS.strategyScreenshots}/${userId}/${strategyId}/example.jpg`);
+  return deleteStorageFile(`${STORAGE_BUCKETS.strategyScreenshots}/${getStrategyScreenshotPath(userId, strategyId)}`);
 }
 
 export async function createSignedUrl(bucket: string, path: string, expiresIn = 60 * 60 * 24 * 365) {
+  await requireStoragePathOwner(path);
   const { data, error } = await requireSupabaseClient()
     .storage
     .from(bucket)

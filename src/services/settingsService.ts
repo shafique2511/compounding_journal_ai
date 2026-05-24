@@ -1,17 +1,30 @@
 import { listUserDocuments, saveUserSettings } from "@/lib/supabase";
+import { requireUser } from "@/src/lib/supabase/client";
 import { DEFAULT_SETTINGS } from "@/store";
 import type { AppSettings } from "@/types";
 
 export async function getSettings(userId: string) {
+  const user = await requireSettingsOwner(userId);
   const settingsRows = await listUserDocuments<(Partial<AppSettings> & { id: string })>(
-    userId,
+    user.id,
     "settings",
   );
+
+  if (!settingsRows[0]) {
+    await saveUserSettings(user.id, DEFAULT_SETTINGS);
+    const createdSettingsRows = await listUserDocuments<(Partial<AppSettings> & { id: string })>(
+      user.id,
+      "settings",
+    );
+    return { ...DEFAULT_SETTINGS, ...createdSettingsRows[0] } satisfies AppSettings;
+  }
+
   return { ...DEFAULT_SETTINGS, ...settingsRows[0] } satisfies AppSettings;
 }
 
 export async function createDefaultSettings(userId: string) {
-  await saveUserSettings(userId, DEFAULT_SETTINGS);
+  const user = await requireSettingsOwner(userId);
+  await saveUserSettings(user.id, DEFAULT_SETTINGS);
   return DEFAULT_SETTINGS;
 }
 
@@ -63,3 +76,13 @@ export const settingsService = {
   updateRiskSettings,
   updateSettings,
 };
+
+async function requireSettingsOwner(userId: string) {
+  const user = await requireUser();
+
+  if (user.id !== userId) {
+    throw new Error("Permission blocked by database policy. Check role and RLS rules.");
+  }
+
+  return user;
+}

@@ -1,5 +1,6 @@
 import { createFriendlyError } from "@/lib/errors/app-error";
 import { STORAGE_BUCKETS, requireSupabaseClient } from "@/lib/supabase/config";
+import { requireUser } from "@/src/lib/supabase/client";
 import type { ScreenshotSlot } from "@/types";
 
 const signedUrlTtlSeconds = 60 * 60 * 24 * 365;
@@ -10,16 +11,21 @@ export async function uploadTradeScreenshot(
   slot: ScreenshotSlot,
   file: File,
 ) {
-  const fileName = slot === "beforeEntry" ? "before.jpg" : "after.jpg";
-  const path = `${userId}/${tradeId}/${fileName}`;
-  return uploadFile(STORAGE_BUCKETS.tradeScreenshots, path, file);
+  await requireStorageOwner(userId);
+  return uploadFile(
+    STORAGE_BUCKETS.tradeScreenshots,
+    getTradeScreenshotPath(userId, tradeId, slot),
+    file,
+  );
 }
 
-export function uploadStrategyScreenshot(userId: string, strategyId: string, file: File) {
-  return uploadFile(STORAGE_BUCKETS.strategyScreenshots, `${userId}/${strategyId}/example.jpg`, file);
+export async function uploadStrategyScreenshot(userId: string, strategyId: string, file: File) {
+  await requireStorageOwner(userId);
+  return uploadFile(STORAGE_BUCKETS.strategyScreenshots, getStrategyScreenshotPath(userId, strategyId), file);
 }
 
-export function uploadBackupFile(userId: string, timestamp: string, file: File) {
+export async function uploadBackupFile(userId: string, timestamp: string, file: File) {
+  await requireStorageOwner(userId);
   return uploadFile(STORAGE_BUCKETS.backups, `${userId}/backup-${timestamp}.json`, file);
 }
 
@@ -30,6 +36,8 @@ export async function deleteStorageFile(pathOrUrl: string) {
     return;
   }
 
+  await requireStoragePathOwner(storageRef.path);
+
   const { error } = await requireSupabaseClient()
     .storage
     .from(storageRef.bucket)
@@ -37,6 +45,36 @@ export async function deleteStorageFile(pathOrUrl: string) {
 
   if (error) {
     throw createFriendlyError(error, { action: "delete storage file", source: "storage" });
+  }
+}
+
+export function getTradeScreenshotPath(userId: string, tradeId: string, slot: ScreenshotSlot) {
+  const fileName = slot === "beforeEntry" ? "before.jpg" : "after.jpg";
+  return `${userId}/${tradeId}/${fileName}`;
+}
+
+export function getStrategyScreenshotPath(userId: string, strategyId: string) {
+  return `${userId}/${strategyId}/example.jpg`;
+}
+
+async function requireStorageOwner(userId: string) {
+  const user = await requireUser();
+
+  if (user.id !== userId) {
+    throw createFriendlyError("Permission blocked by database policy. Check role and RLS rules.", {
+      source: "storage",
+    });
+  }
+}
+
+export async function requireStoragePathOwner(path: string) {
+  const user = await requireUser();
+  const [pathOwnerId] = path.split("/");
+
+  if (!pathOwnerId || pathOwnerId !== user.id) {
+    throw createFriendlyError("Permission blocked by database policy. Check role and RLS rules.", {
+      source: "storage",
+    });
   }
 }
 
