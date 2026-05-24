@@ -1,4 +1,4 @@
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { createFriendlyError } from "@/lib/errors/app-error";
 import { requireSupabaseClient } from "@/lib/supabase/config";
 import { DEFAULT_SETTINGS } from "@/store/default-state";
@@ -13,12 +13,14 @@ import {
   strategyToInsert,
   tradeFromRow,
   tradeToInsert,
+  tradeToUpdate,
   type AiAnalysisRow,
   type FilterPresetRow,
   type SettingsRow,
   type StrategyRow,
   type TradeRow,
 } from "@/lib/supabase/mappers";
+import type { Database } from "@/src/types/supabase";
 import type { AiAnalysis, AppSettings, FilterPreset, Strategy, Trade } from "@/types";
 
 type UserCollection = "trades" | "aiAnalyses" | "strategies" | "filterPresets" | "settings";
@@ -92,9 +94,25 @@ export async function listTrades(userId: string) {
 }
 
 export async function saveTrade(userId: string, trade: Trade) {
-  const { error } = await requireSupabaseClient()
+  const supabase = await requireAuthenticatedOwner(userId);
+  const { data: existingTrade, error: lookupError } = await supabase
     .from("trades")
-    .upsert(tradeToInsert(trade, userId));
+    .select("id")
+    .eq("id", trade.id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (lookupError) {
+    throwPostgrestError(lookupError);
+  }
+
+  const { error } = existingTrade
+    ? await supabase
+        .from("trades")
+        .update(tradeToUpdate(trade, userId))
+        .eq("id", trade.id)
+        .eq("user_id", userId)
+    : await supabase.from("trades").insert(tradeToInsert(trade, userId));
 
   if (error) {
     throwPostgrestError(error);
@@ -179,6 +197,25 @@ export async function deleteUserDocuments(
 
 function throwPostgrestError(error: PostgrestError): never {
   throw createFriendlyError(error, { source: "database" });
+}
+
+async function requireAuthenticatedOwner(userId: string): Promise<SupabaseClient<Database>> {
+  const supabase = requireSupabaseClient();
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error) {
+    throw createFriendlyError(error, { action: "verify current user", source: "auth" });
+  }
+
+  if (!data.user) {
+    throw createFriendlyError("User not authenticated.", { source: "auth" });
+  }
+
+  if (data.user.id !== userId) {
+    throw createFriendlyError("Permission denied for this user data.", { source: "database" });
+  }
+
+  return supabase;
 }
 
 function mapRowByCollection(collectionName: UserCollection, row: Record<string, unknown>) {
