@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Session } from "@supabase/supabase-js";
 import { createFriendlyError } from "@/lib/errors/app-error";
@@ -41,6 +42,28 @@ export async function requireSupabaseServerClient() {
   }
 
   return supabase;
+}
+
+export function requireSupabaseServiceRoleClient() {
+  const config = getSupabasePublicConfig();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+
+  if (!config) {
+    throw createFriendlyError(getSupabaseConfigErrorMessage(), { source: "auth" });
+  }
+
+  if (!serviceRoleKey) {
+    throw createFriendlyError("Supabase service role key is missing. Set SUPABASE_SERVICE_ROLE_KEY.", {
+      source: "database",
+    });
+  }
+
+  return createClient<Database>(config.url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 export async function getCurrentSession(): Promise<Session | null> {

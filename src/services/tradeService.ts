@@ -104,8 +104,22 @@ export async function recalculateTradesAfterChange(
   initialBalance: number,
 ) {
   const recalculatedTrades = recalculateTradesInSequence(trades, initialBalance);
-  await Promise.all(recalculatedTrades.map((trade) => saveTrade(userId, trade)));
-  return recalculatedTrades;
+  return syncRecalculatedTrades(userId, recalculatedTrades);
+}
+
+async function syncRecalculatedTrades(userId: string, trades: Trade[]) {
+  const response = await fetch("/api/trades/sync", {
+    body: JSON.stringify({ trades }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const data = (await response.json().catch(() => ({}))) as { error?: string; trades?: Trade[] };
+
+  if (!response.ok || data.error) {
+    throw new Error(data.error || "Trades could not be saved to Supabase.");
+  }
+
+  return data.trades ?? trades;
 }
 
 export const tradeService = {
